@@ -1,0 +1,1 @@
+Functions that make use of platform specific libraries to make cross platform functions.
