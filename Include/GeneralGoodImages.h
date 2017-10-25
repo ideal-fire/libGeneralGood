@@ -22,5 +22,7 @@ int GetTextureHeight(CrossTexture* passedTexture);
 int GetTextureWidth(CrossTexture* passedTexture);
 CrossTexture* LoadJPG(char* path);
 CrossTexture* LoadPNG(char* path);
- 
+CrossTexture* LoadPNGBuffer(void* _passedBuffer, int _passedBufferSize);
+CrossTexture* LoadJPGBuffer(void* _passedBuffer, int _passedBufferSize);
+
 #endif /* GENERALGOODGRAPHICS_H */

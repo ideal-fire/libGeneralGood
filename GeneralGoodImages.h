@@ -15,21 +15,53 @@
 	== IMAGES
 	=================================================
 	*/
+	#if RENDERER == REND_SDL
+	CrossTexture* surfaceToTexture(SDL_Surface* _tempSurface){
+		// Real one we'll return
+		SDL_Texture* _returnTexture;
+		_returnTexture = SDL_CreateTextureFromSurface( mainWindowRenderer, _tempSurface );
+		showErrorIfNull(_returnTexture);
+		// Free memori
+		SDL_FreeSurface(_tempSurface);
+		return _returnTexture;
+	}
+	#endif
+	CrossTexture* LoadPNGBuffer(void* _passedBuffer, int _passedBufferSize){
+		#if RENDERER==REND_VITA2D
+			return vita2d_load_PNG_buffer(_passedBuffer);
+		#elif RENDERER==REND_SDL
+			SDL_RWops* _passedBufferRW = SDL_RWFromMem(_passedBuffer, _passedBufferSize);
+			SDL_Surface* _tempSurface = IMG_LoadPNG_RW(_passedBufferRW);
+			showErrorIfNull(_tempSurface);
+			SDL_RWclose(_passedBufferRW);
+			// Make good
+			return surfaceToTexture(_tempSurface);
+		#elif RENDERER==REND_SF2D
+			#error no 3ds support yet
+		#endif
+	}
+	CrossTexture* LoadJPGBuffer(void* _passedBuffer, int _passedBufferSize){
+		#if RENDERER==REND_VITA2D
+			return vita2d_load_JPEG_buffer(_passedBuffer,_passedBufferSize);
+		#elif RENDERER==REND_SDL
+			SDL_RWops* _passedBufferRW = SDL_RWFromMem(_passedBuffer, _passedBufferSize);
+			SDL_Surface* _tempSurface = IMG_LoadJPG_RW(_passedBufferRW);
+			showErrorIfNull(_tempSurface);
+			SDL_RWclose(_passedBufferRW);
+			// Make good
+			return surfaceToTexture(_tempSurface);
+		#elif RENDERER==REND_SF2D
+			#error no 3ds support yet
+		#endif
+	}
 	CrossTexture* LoadPNG(char* path){
 		#if RENDERER==REND_VITA2D
 			return vita2d_load_PNG_file(path);
 		#elif RENDERER==REND_SDL
-			// Real one we'll return
-			SDL_Texture* _returnTexture;
-			// Load temp and sho error
 			SDL_Surface* _tempSurface = IMG_Load(path);
 			showErrorIfNull(_tempSurface);
 			// Make good
-			_returnTexture = SDL_CreateTextureFromSurface( mainWindowRenderer, _tempSurface );
-			showErrorIfNull(_returnTexture);
-			// Free memori
-			SDL_FreeSurface(_tempSurface);
-			return _returnTexture;
+			return surfaceToTexture(_tempSurface);
 		#elif RENDERER==REND_SF2D
 			return sfil_load_PNG_file(path,SF2D_PLACE_RAM);
 		#endif
