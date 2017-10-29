@@ -1,0 +1,1 @@
+gcc main.c -L../ -lmingw32 -lGeneralGood -L../Windows/  -lSDLFontCache -lSDL2main -lSDL2 -lSDL2_image -lSDL2_ttf  -o a.exe

@@ -10,23 +10,19 @@
 	#include <string.h>
 	#include <stdlib.h>
 	#include <unistd.h>
+	// For stuff like uint8_t
+	#include <stdint.h>
 	
-	#if SUBPLATFORM == SUB_UNIX
-		#include <sys/types.h>
-		#include <sys/stat.h>
-	#endif
-	
-	#if PLATFORM == PLAT_WINDOWS
+	#if PLATFORM == PLAT_COMPUTER
 		// Header for directory functions
 		#include <dirent.h>
 	#endif
-	// For stuff like uint8_t
-	#include <stdint.h>
+	
 	
 	// Headers for wait function
 	#if RENDERER == REND_SDL
 		#include <SDL2/SDL.h>
-	#elif PLATFORM == PLAT_WINDOWS
+	#elif PLATFORM == PLAT_COMPUTER
 		#include <windows.h>
 	#endif
 
@@ -36,6 +32,10 @@
 		#include <sys/stat.h>
 		// So we can see console output with adb logcat
 		#define printf SDL_Log
+	#endif
+	#if SUBPLATFORM == SUB_UNIX
+		#include <sys/types.h>
+		#include <sys/stat.h>
 	#endif
 
 	typedef uint8_t 	u8;
@@ -55,7 +55,7 @@
 			SDL_Delay(miliseconds);
 		#elif PLATFORM == PLAT_3DS
 			svcSleepThread(miliseconds*1000000);
-		#elif PLATFORM == PLAT_WINDOWS
+		#elif PLATFORM == PLAT_COMPUTER
 			Sleep(miliseconds);
 		#endif
 	}
@@ -68,7 +68,7 @@
 			return SDL_GetTicks();
 		#elif PLATFORM == PLAT_3DS
 			return osGetTime();
-		#elif PLATFORM == PLAT_WINDOWS
+		#elif PLATFORM == PLAT_COMPUTER
 			LARGE_INTEGER s_frequency;
 			char s_use_qpc = QueryPerformanceFrequency(&s_frequency);
 			if (s_use_qpc) {
@@ -106,7 +106,7 @@
 				sceIoClose(fileHandle);
 				return 1;
 			}
-		#elif PLATFORM == PLAT_WINDOWS
+		#elif PLATFORM == PLAT_COMPUTER
 			if( access( location, F_OK ) != -1 ) {
 				return 1;
 			} else {
@@ -118,7 +118,7 @@
 	void createDirectory(const char* path){
 		#if PLATFORM == PLAT_VITA
 			sceIoMkdir(path,0777);
-		#elif PLATFORM == PLAT_WINDOWS
+		#elif PLATFORM == PLAT_COMPUTER
 			#if SUBPLATFORM == SUB_ANDROID || SUBPLATFORM == SUB_UNIX
 				mkdir(path,0777);
 			#else
@@ -144,7 +144,7 @@
 	=================================================
 	*/
 	// PLEASE MAKE DIR PATHS END IN A SLASH
-	#if PLATFORM == PLAT_WINDOWS
+	#if PLATFORM == PLAT_COMPUTER
 		#define CROSSDIR DIR*
 		#define CROSSDIRSTORAGE struct dirent*
 	#elif PLATFORM == PLAT_VITA
@@ -153,7 +153,7 @@
 	#endif
 
 	char dirOpenWorked(CROSSDIR passedir){
-		#if PLATFORM == PLAT_WINDOWS
+		#if PLATFORM == PLAT_COMPUTER
 			if (passedir==NULL){
 				return 0;
 			}
@@ -166,7 +166,7 @@
 	}
 
 	CROSSDIR openDirectory(const char* filepath){
-		#if PLATFORM == PLAT_WINDOWS
+		#if PLATFORM == PLAT_COMPUTER
 			return opendir(filepath);
 		#elif PLATFORM == PLAT_VITA
 			return (sceIoDopen(filepath));
@@ -174,7 +174,7 @@
 	}
 
 	char* getDirectoryResultName(CROSSDIRSTORAGE* passedStorage){
-		#if PLATFORM == PLAT_WINDOWS
+		#if PLATFORM == PLAT_COMPUTER
 			return ((*passedStorage)->d_name);
 		#elif PLATFORM == PLAT_VITA
 			//WriteToDebugFile
@@ -183,7 +183,7 @@
 	}
 
 	int directoryRead(CROSSDIR* passedir, CROSSDIRSTORAGE* passedStorage){
-		#if PLATFORM == PLAT_WINDOWS
+		#if PLATFORM == PLAT_COMPUTER
 			*passedStorage = readdir (*passedir);
 			if (*passedStorage != NULL){
 				if (strcmp((*passedStorage)->d_name,".")==0 || strcmp((*passedStorage)->d_name,"..")==0){
@@ -198,12 +198,11 @@
 		#elif PLATFORM == PLAT_VITA
 			int _a = sceIoDread(*passedir,passedStorage);
 			return _a;
-			
 		#endif
 	}
 
 	void directoryClose(CROSSDIR passedir){
-		#if PLATFORM == PLAT_WINDOWS
+		#if PLATFORM == PLAT_COMPUTER
 			closedir(passedir);
 		#elif PLATFORM == PLAT_VITA
 			sceIoDclose(passedir);

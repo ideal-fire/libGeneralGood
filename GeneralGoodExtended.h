@@ -10,20 +10,20 @@
 	#define TYPE_DATA 1
 	#define TYPE_EMBEDDED 2
 
-	#if DOFIXCOORDS == 1
-		int FixX(int x);
-		int FixY(int y);
-	#endif
+	//#if DOFIXCOORDS == 1
+	//	int FixX(int x);
+	//	int FixY(int y);
+	//#endif
 
-	#if DOFIXCOORDS == 1
-		void FixCoords(int* _x, int* _y){
-			*_x = FixX(*_x);
-			*_y = FixY(*_y);
-		}
-		#define EASYFIXCOORDS(x, y) FixCoords(x,y)
-	#else
-		#define EASYFIXCOORDS(x,y)
-	#endif
+	//#if DOFIXCOORDS == 1
+	//	void FixCoords(int* _x, int* _y){
+	//		*_x = FixX(*_x);
+	//		*_y = FixY(*_y);
+	//	}
+	//	#define EASYFIXCOORDS(x, y) FixCoords(x,y)
+	//#else
+	//	#define EASYFIXCOORDS(x,y)
+	//#endif
 
 
 	unsigned char isSkipping=0;
@@ -63,7 +63,7 @@
 			SceCtrlData lastPad;
 		#endif
 	#endif
-	#if PLATFORM == PLAT_WINDOWS
+	#if PLATFORM == PLAT_COMPUTER
 		// Header for directory functions
 		#include <dirent.h>
 	#endif
@@ -126,13 +126,13 @@
 		}
 	#endif
 
-	signed char WasJustReleased(int value){
+	signed char wasJustReleased(int value){
 		if (InputValidity==1 || isSkipping==1){
 			#if PLATFORM == PLAT_VITA
 				if (lastPad.buttons & value && !(pad.buttons & value)){
 					return 1;
 				}
-			#elif PLATFORM == PLAT_WINDOWS
+			#elif PLATFORM == PLAT_COMPUTER
 				if (lastPad[value]==1 && pad[value]==0){
 					return 1;
 				}
@@ -141,13 +141,13 @@
 		return 0;
 	}
 
-	signed char WasJustPressedRegardless(int value){
+	signed char wasJustPressedRegardless(int value){
 		
 		#if PLATFORM == PLAT_VITA
 			if (pad.buttons & value && !(lastPad.buttons & value)){
 				return 1;
 			}
-		#elif PLATFORM == PLAT_WINDOWS
+		#elif PLATFORM == PLAT_COMPUTER
 			if (pad[value]==1 && lastPad[value]==0){
 				return 1;
 			}
@@ -160,13 +160,13 @@
 		return 0;
 	}
 
-	signed char WasJustPressed(int value){
+	signed char wasJustPressed(int value){
 		if (InputValidity==1 || isSkipping==1){
 			#if PLATFORM == PLAT_VITA
 				if (pad.buttons & value && !(lastPad.buttons & value)){
 					return 1;
 				}
-			#elif PLATFORM == PLAT_WINDOWS
+			#elif PLATFORM == PLAT_COMPUTER
 				if (pad[value]==1 && lastPad[value]==0){
 					return 1;
 				}
@@ -179,7 +179,7 @@
 		return 0;
 	}
 
-	void ControlsStart(){
+	void controlsStart(){
 		#if PLATFORM == PLAT_VITA
 			sceCtrlPeekBufferPositive(0, &pad, 1);
 			//sceTouchPeek(SCE_TOUCH_PORT_FRONT, &currentTouch, 1);
@@ -190,7 +190,7 @@
 				if( e.type == SDL_QUIT ){
 					//XOutFunction();
 				}
-				#if PLATFORM == PLAT_WINDOWS
+				#if PLATFORM == PLAT_COMPUTER
 					if( e.type == SDL_KEYDOWN ){
 						if (e.key.keysym.sym==SDLK_z){ /* X */
 							pad[SCE_CTRL_CROSS]=1;
@@ -242,7 +242,7 @@
 					}
 				#endif
 				
-				#if PLATFORM == PLAT_WINDOWS
+				#if PLATFORM == PLAT_COMPUTER
 					if( e.type == SDL_FINGERDOWN || (pad[SCE_TOUCH]==1 && e.type == SDL_FINGERMOTION)){
 						touchX = e.tfinger.x * screenWidth;
 						touchY = e.tfinger.y * screenHeight;
@@ -262,30 +262,19 @@
 		#endif
 	}
 
-	void ControlsEnd(){
+	void controlsEnd(){
 		#if PLATFORM == PLAT_VITA
 			lastPad=pad;
-		#elif PLATFORM == PLAT_WINDOWS
+		#elif PLATFORM == PLAT_COMPUTER
 			memcpy(lastPad,pad,sizeof(pad));
 		#endif
 	}
 
-	void ControlsResetFull(){
-		#if PLATFORM != PLAT_VITA
-			memset(&pad,0xFF,sizeof(pad));
-			memset(&lastPad,0xFF,sizeof(lastPad));
-		#elif PLATFORM == PLAT_VITA
-			memset(&pad.buttons,0xFF,sizeof(pad.buttons));
-			memset(&lastPad.buttons,0xFF,sizeof(pad.buttons));
-		#endif
-	}
+	#define controlsReset() \
+		controlsStart(); \
+		controlsEnd();
 
-	void ControlsReset(){
-		ControlsStart();
-		ControlsEnd();
-	}
-
-	void ControlsResetEmpty(){
+	void controlsResetEmpty(){
 		#if PLATFORM != PLAT_VITA
 			memset(&pad,0,sizeof(pad));
 			memset(&lastPad,0,sizeof(lastPad));
@@ -295,13 +284,13 @@
 		#endif
 	}
 
-	signed char IsDown(int value){
+	signed char isDown(int value){
 		if (InputValidity==1 || isSkipping==1){
 			#if PLATFORM == PLAT_VITA
 				if (pad.buttons & value){
 					return 1;
 				}
-			#elif PLATFORM == PLAT_WINDOWS
+			#elif PLATFORM == PLAT_COMPUTER
 		
 				if (pad[value]==1){
 					return 1;
@@ -316,11 +305,11 @@
 	}
 
 	// Passed string should be freed already
-	void GenerateDefaultDataDirectory(char** _dataDirPointer, char _useUma0){
+	void generateDefaultDataDirectory(char** _dataDirPointer, char _useUma0){
 		#if SUBPLATFORM == SUB_ANDROID
 			*_dataDirPointer = malloc(strlen("/data/data/"ANDROIDPACKAGENAME"/")+1);
 			strcpy(*_dataDirPointer,"/data/data/"ANDROIDPACKAGENAME"/"+1);
-		#elif PLATFORM == PLAT_WINDOWS
+		#elif PLATFORM == PLAT_COMPUTER
 			*_dataDirPointer = malloc(strlen("./")+1);
 			strcpy(*_dataDirPointer,"./");
 		#elif PLATFORM == PLAT_VITA
@@ -334,9 +323,9 @@
 		#endif
 	}
 
-	void FixPath(char* filename,char _buffer[], char type){
+	void fixPath(char* filename,char _buffer[], char type){
 		if (DATAFOLDER==NULL){
-			GenerateDefaultDataDirectory(&DATAFOLDER,USEUMA0);
+			generateDefaultDataDirectory(&DATAFOLDER,USEUMA0);
 		}
 		#if SUBPLATFORM == SUB_ANDROID
 			if (type==TYPE_DATA){
@@ -345,7 +334,7 @@
 				strcpy((char*)_buffer,"");
 			}
 			strcat((char*)_buffer,filename);
-		#elif PLATFORM == PLAT_WINDOWS
+		#elif PLATFORM == PLAT_COMPUTER
 			if (type==TYPE_DATA){
 				strcpy((char*)_buffer,DATAFOLDER);
 			}else if (type==TYPE_EMBEDDED){
@@ -362,9 +351,9 @@
 		#endif
 	}
 
-	void MakeDataDirectory(){
+	void makeDataDirectory(){
 		char tempPathFixBuffer[256];
-		FixPath("",tempPathFixBuffer,TYPE_DATA);
+		fixPath("",tempPathFixBuffer,TYPE_DATA);
 		if (directoryExists((const char*)tempPathFixBuffer)==0){
 			createDirectory((const char*)tempPathFixBuffer);
 		}

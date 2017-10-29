@@ -26,7 +26,7 @@
 		Soloud* mySoLoudEngine;
 	#endif
 
-	void InitAudio(){
+	void initAudio(){
 		#if SOUNDPLAYER == SND_SDL
 			SDL_Init( SDL_INIT_AUDIO );
 			Mix_Init(MIX_INIT_OGG);
@@ -36,42 +36,42 @@
 			Soloud_init(mySoLoudEngine);
 		#endif
 	}
-	int GetMusicVolume(CROSSPLAYHANDLE _passedMusicHandle){
+	int getMusicVolume(CROSSPLAYHANDLE _passedMusicHandle){
 		#if SOUNDPLAYER == SND_SDL
 			return Mix_VolumeMusic(-1);
 		#elif SOUNDPLAYER == SND_SOLOUD
 			return Soloud_getVolume(mySoLoudEngine,_passedMusicHandle)*128;
 		#endif
 	}
-	void SetSFXVolumeBefore(CROSSSFX* tochange, int toval){
+	void setSFXVolumeBefore(CROSSSFX* tochange, int toval){
 		#if SOUNDPLAYER == SND_SDL
 			Mix_VolumeChunk(tochange,toval);
 		#elif SOUNDPLAYER == SND_SOLOUD
 			Wav_setVolume(tochange,(float)((float)toval/(float)128));
 		#endif
 	}
-	void SetSFXVolume(CROSSPLAYHANDLE tochange, int toval){
+	void setSFXVolume(CROSSPLAYHANDLE tochange, int toval){
 		#if SOUNDPLAYER == SND_SDL
 			SetSFXVolumeBefore(tochange,toval);
 		#elif SOUNDPLAYER == SND_SOLOUD
 			Soloud_setVolume(mySoLoudEngine,tochange,(float)((float)toval/(float)128));
 		#endif
 	}
-	void SetMusicVolumeBefore(CROSSMUSIC* _passedMusic,int vol){
+	void setMusicVolumeBefore(CROSSMUSIC* _passedMusic,int vol){
 		#if SOUNDPLAYER == SND_SDL
 			Mix_VolumeMusic(vol);
 		#elif SOUNDPLAYER == SND_SOLOUD
 			WavStream_setVolume(_passedMusic,(float)((float)vol/(float)128));
 		#endif
 	}
-	void SetMusicVolume(CROSSPLAYHANDLE _passedMusic,int vol){
+	void setMusicVolume(CROSSPLAYHANDLE _passedMusic,int vol){
 		#if SOUNDPLAYER == SND_SDL
 			Mix_VolumeMusic(vol);
 		#elif SOUNDPLAYER == SND_SOLOUD
 			SetSFXVolume(_passedMusic,vol);
 		#endif
 	}
-	void FadeoutMusic(CROSSPLAYHANDLE _passedHandle,int time){
+	void fadeoutMusic(CROSSPLAYHANDLE _passedHandle,int time){
 		#if SOUNDPLAYER == SND_SDL
 			Mix_FadeOutMusic(time);
 		#elif SOUNDPLAYER == SND_SOLOUD
@@ -79,7 +79,7 @@
 			Soloud_scheduleStop(mySoLoudEngine,_passedHandle,(double)((double)time/(double)1000));
 		#endif
 	}
-	CROSSSFX* LoadSound(char* filepath){
+	CROSSSFX* loadSound(char* filepath){
 		#if SOUNDPLAYER == SND_SDL
 			return Mix_LoadWAV(filepath);
 		#elif SOUNDPLAYER == SND_SOLOUD
@@ -90,7 +90,7 @@
 			return NULL;
 		#endif
 	}
-	CROSSMUSIC* LoadMusic(char* filepath){
+	CROSSMUSIC* loadMusic(char* filepath){
 		#if SOUNDPLAYER == SND_SDL
 			return Mix_LoadMUS(filepath);
 		#elif SOUNDPLAYER == SND_SOLOUD
@@ -101,21 +101,21 @@
 			return NULL;
 		#endif
 	}
-	void PauseMusic(CROSSPLAYHANDLE _passedHandle){
+	void pauseMusic(CROSSPLAYHANDLE _passedHandle){
 		#if SOUNDPLAYER == SND_SDL
 			Mix_PauseMusic();
 		#elif SOUNDPLAYER == SND_SOLOUD
 			Soloud_setPause(mySoLoudEngine,_passedHandle, 1);
 		#endif
 	}
-	void ResumeMusic(CROSSPLAYHANDLE _passedHandle){
+	void resumeMusic(CROSSPLAYHANDLE _passedHandle){
 		#if SOUNDPLAYER == SND_SDL
 			Mix_ResumeMusic();
 		#elif SOUNDPLAYER == SND_SOLOUD
 			Soloud_setPause(mySoLoudEngine,_passedHandle, 0);
 		#endif
 	}
-	void StopMusic(CROSSMUSIC* toStop){
+	void stopMusic(CROSSMUSIC* toStop){
 		#if SOUNDPLAYER == SND_SDL
 			Mix_HaltMusic();
 		#elif SOUNDPLAYER == SND_SOLOUD
@@ -124,7 +124,7 @@
 			}
 		#endif
 	}
-	CROSSPLAYHANDLE PlaySound(CROSSSFX* toPlay, int timesToPlay){
+	CROSSPLAYHANDLE playSound(CROSSSFX* toPlay, int timesToPlay){
 		#if SOUNDPLAYER == SND_SDL
 			Mix_PlayChannel( -1, toPlay, timesToPlay-1 );
 			return toPlay;
@@ -135,7 +135,7 @@
 			return Soloud_play(mySoLoudEngine,toPlay);
 		#endif
 	}
-	CROSSPLAYHANDLE PlayMusic(CROSSMUSIC* toPlay){
+	CROSSPLAYHANDLE playMusic(CROSSMUSIC* toPlay){
 		#if SOUNDPLAYER == SND_SDL
 			Mix_PlayMusic(toPlay,-1);
 			return toPlay;
@@ -144,14 +144,14 @@
 			return Soloud_play(mySoLoudEngine,toPlay);
 		#endif
 	}
-	void FreeSound(CROSSSFX* toFree){
+	void freeSound(CROSSSFX* toFree){
 		#if SOUNDPLAYER == SND_SDL
 			Mix_FreeChunk(toFree);
 		#elif SOUNDPLAYER == SND_SOLOUD
 			Wav_destroy(toFree);
 		#endif
 	}
-	void FreeMusic(CROSSMUSIC* toFree){
+	void freeMusic(CROSSMUSIC* toFree){
 		#if SOUNDPLAYER == SND_SDL
 			Mix_FreeMusic(toFree);
 		#elif SOUNDPLAYER == SND_SOLOUD

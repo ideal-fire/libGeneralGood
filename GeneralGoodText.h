@@ -22,7 +22,7 @@
 		int fontSize=32;
 	#endif
 
-	void LoadFont(char* filename){
+	void loadFont(char* filename){
 		#if TEXTRENDERER == TEXT_DEBUG
 			#warning MAKE SURE THE FONT FILE EXISTS
 			fontImage=LoadEmbeddedPNG("Stuff/Font.png");
@@ -37,7 +37,7 @@
 		#endif
 	}
 
-	int TextHeight(float scale){
+	int textHeight(float scale){
 		#if TEXTRENDERER == TEXT_DEBUG
 			return (8*scale);
 		#elif TEXTRENDERER == TEXT_VITA2D
@@ -48,7 +48,7 @@
 	}
 
 	// Please always use the same font size
-	int TextWidth(float scale, const char* message){
+	int textWidth(float scale, const char* message){
 		#if TEXTRENDERER == TEXT_DEBUG
 			return floor((8*scale)*strlen(message)+strlen(message));
 		#elif TEXTRENDERER == TEXT_VITA2D
@@ -59,17 +59,17 @@
 	}
 	
 	#if TEXTRENDERER == TEXT_DEBUG
-		void DrawLetter(int letterId, int _x, int _y, float size){
-			DrawTexturePartScale(fontImage,_x,_y,(letterId-32)*(8),0,8,8,size,size);
+		void drawLetter(int letterId, int _x, int _y, float size){
+			drawTexturePartScale(fontImage,_x,_y,(letterId-32)*(8),0,8,8,size,size);
 		}
-		void DrawLetterColor(int letterId, int _x, int _y, float size, unsigned char r, unsigned char g, unsigned char b){
-			DrawTexturePartScaleTint(fontImage,_x,_y,(letterId-32)*(8),0,8,8,size,size,r,g,b);
+		void drawLetterColor(int letterId, int _x, int _y, float size, unsigned char r, unsigned char g, unsigned char b){
+			drawTexturePartScaleTint(fontImage,_x,_y,(letterId-32)*(8),0,8,8,size,size,r,g,b);
 		}
 	#endif
-	void GoodDrawText(int x, int y, const char* text, float size){
+	void goodDrawText(int x, int y, const char* text, float size){
 		#if TEXTRENDERER == TEXT_VITA2D
 			EASYFIXCOORDS(&x,&y);
-			vita2d_font_draw_text(fontImage,x,y+TextHeight(size), RGBA8(255,255,255,255),floor(size),text);
+			vita2d_font_draw_text(fontImage,x,y+textHeight(size), RGBA8(255,255,255,255),floor(size),text);
 		#elif TEXTRENDERER == TEXT_DEBUG
 			int i=0;
 			for (i = 0; i < strlen(text); i++){
@@ -81,10 +81,10 @@
 		#endif
 	}
 	
-	void GoodDrawTextColored(int x, int y, const char* text, float size, unsigned char r, unsigned char g, unsigned char b){
+	void goodDrawTextColored(int x, int y, const char* text, float size, unsigned char r, unsigned char g, unsigned char b){
 		#if TEXTRENDERER == TEXT_VITA2D
 			EASYFIXCOORDS(&x,&y);
-			vita2d_font_draw_text(fontImage,x,y+TextHeight(size), RGBA8(r,g,b,255),floor(size),text);
+			vita2d_font_draw_text(fontImage,x,y+textHeight(size), RGBA8(r,g,b,255),floor(size),text);
 		#elif TEXTRENDERER == TEXT_DEBUG
 			int i=0;
 			int notICounter=0;

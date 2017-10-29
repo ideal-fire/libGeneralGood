@@ -6,16 +6,14 @@
 		int FixY(int y);
 	#endif
 
-	#if ISUSINGEXTENDED == 0
-		#if DOFIXCOORDS == 1
-			void FixCoords(int* _x, int* _y){
-				*_x = FixX(*_x);
-				*_y = FixY(*_y);
-			}
-			#define EASYFIXCOORDS(x, y) FixCoords(x,y)
-		#else
-			#define EASYFIXCOORDS(x,y)
-		#endif
+	#if DOFIXCOORDS == 1
+		void FixCoords(int* _x, int* _y){
+			*_x = FixX(*_x);
+			*_y = FixY(*_y);
+		}
+		#define EASYFIXCOORDS(x, y) FixCoords(x,y)
+	#else
+		#define EASYFIXCOORDS(x,y)
 	#endif
 
 	// Renderer stuff
@@ -76,7 +74,7 @@
 		#endif
 	}
 
-	void StartDrawing(){
+	void startDrawing(){
 		#if RENDERER == REND_VITA2D
 			vita2d_start_drawing();
 			vita2d_clear_screen();
@@ -87,7 +85,7 @@
 		#endif
 	}
 	
-	void EndDrawing(){
+	void endDrawing(){
 		#if RENDERER == REND_VITA2D
 			vita2d_end_drawing();
 			vita2d_swap_buffers();
@@ -110,7 +108,7 @@
 	////// CROSS PLATFORM DRAW FUNCTIONS
 	////////////////////////////////////////////////////
 	*/
-	void SetClearColor(int r, int g, int b, int a){
+	void setClearColor(int r, int g, int b, int a){
 		if (a!=255){
 			printf("You're a moron\n");
 		}
@@ -123,7 +121,7 @@
 		#endif
 	}
 
-	void DrawRectangle(int x, int y, int w, int h, int r, int g, int b, int a){
+	void drawRectangle(int x, int y, int w, int h, int r, int g, int b, int a){
 		EASYFIXCOORDS(&x,&y);
 		#if RENDERER == REND_VITA2D
 			vita2d_draw_rectangle(x,y,w,h,RGBA8(r,g,b,a));

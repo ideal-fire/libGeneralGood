@@ -16,17 +16,17 @@
 	=================================================
 	*/
 	#if RENDERER == REND_SDL
-	CrossTexture* surfaceToTexture(SDL_Surface* _tempSurface){
-		// Real one we'll return
-		SDL_Texture* _returnTexture;
-		_returnTexture = SDL_CreateTextureFromSurface( mainWindowRenderer, _tempSurface );
-		showErrorIfNull(_returnTexture);
-		// Free memori
-		SDL_FreeSurface(_tempSurface);
-		return _returnTexture;
-	}
+		CrossTexture* surfaceToTexture(SDL_Surface* _tempSurface){
+			// Real one we'll return
+			SDL_Texture* _returnTexture;
+			_returnTexture = SDL_CreateTextureFromSurface( mainWindowRenderer, _tempSurface );
+			showErrorIfNull(_returnTexture);
+			// Free memori
+			SDL_FreeSurface(_tempSurface);
+			return _returnTexture;
+		}
 	#endif
-	CrossTexture* LoadPNGBuffer(void* _passedBuffer, int _passedBufferSize){
+	CrossTexture* loadPNGBuffer(void* _passedBuffer, int _passedBufferSize){
 		#if RENDERER==REND_VITA2D
 			return vita2d_load_PNG_buffer(_passedBuffer);
 		#elif RENDERER==REND_SDL
@@ -40,7 +40,7 @@
 			#error no 3ds support yet
 		#endif
 	}
-	CrossTexture* LoadJPGBuffer(void* _passedBuffer, int _passedBufferSize){
+	CrossTexture* loadJPGBuffer(void* _passedBuffer, int _passedBufferSize){
 		#if RENDERER==REND_VITA2D
 			return vita2d_load_JPEG_buffer(_passedBuffer,_passedBufferSize);
 		#elif RENDERER==REND_SDL
@@ -54,7 +54,7 @@
 			#error no 3ds support yet
 		#endif
 	}
-	CrossTexture* LoadPNG(char* path){
+	CrossTexture* loadPNG(char* path){
 		#if RENDERER==REND_VITA2D
 			return vita2d_load_PNG_file(path);
 		#elif RENDERER==REND_SDL
@@ -66,16 +66,16 @@
 			return sfil_load_PNG_file(path,SF2D_PLACE_RAM);
 		#endif
 	}
-	CrossTexture* LoadJPG(char* path){
+	CrossTexture* loadJPG(char* path){
 		#if RENDERER==REND_VITA2D
 			return vita2d_load_JPEG_file(path);
 		#elif RENDERER==REND_SDL
-			return LoadPNG(path);
+			return loadPNG(path);
 		#elif RENDERER==REND_SF2D
 			return sfil_load_PNG_file(path,SF2D_PLACE_RAM);
 		#endif
 	}
-	void FreeTexture(CrossTexture* passedTexture){
+	void freeTexture(CrossTexture* passedTexture){
 		#if RENDERER == REND_VITA2D
 			vita2d_wait_rendering_done();
 			sceDisplayWaitVblankStart();
@@ -95,7 +95,7 @@
 	////////////////////////////////////////////////////
 	*/
 
-	int GetTextureWidth(CrossTexture* passedTexture){
+	int getTextureWidth(CrossTexture* passedTexture){
 		#if RENDERER == REND_VITA2D
 			return vita2d_texture_get_width(passedTexture);
 		#elif RENDERER == REND_SDL
@@ -107,7 +107,7 @@
 		#endif
 	}
 	
-	int GetTextureHeight(CrossTexture* passedTexture){
+	int getTextureHeight(CrossTexture* passedTexture){
 		#if RENDERER == REND_VITA2D
 			return vita2d_texture_get_height(passedTexture);
 		#elif RENDERER == REND_SDL
@@ -119,7 +119,7 @@
 		#endif
 	}
 	
-	void DrawTexture(CrossTexture* passedTexture, int _destX, int _destY){
+	void drawTexture(CrossTexture* passedTexture, int _destX, int _destY){
 		EASYFIXCOORDS(&_destX,&_destY);
 		#if RENDERER == REND_VITA2D
 			vita2d_draw_texture(passedTexture,_destX,_destY);
@@ -144,7 +144,7 @@
 		#endif
 	}
 
-	void DrawTexturePartScale(CrossTexture* passedTexture, int destX, int destY, int texX, int texY, int texW, int texH, float texXScale, float texYScale){
+	void drawTexturePartScale(CrossTexture* passedTexture, int destX, int destY, int texX, int texY, int texW, int texH, float texXScale, float texYScale){
 		EASYFIXCOORDS(&destX,&destY);
 		#if RENDERER == REND_VITA2D
 			vita2d_draw_texture_part_scale(passedTexture,destX,destY,texX,texY,texW, texH, texXScale, texYScale);
@@ -169,7 +169,7 @@
 		#endif
 	}
 
-	void DrawTextureScaleTint(CrossTexture* passedTexture, int destX, int destY, float texXScale, float texYScale, unsigned char r, unsigned char g, unsigned char b){
+	void drawTextureScaleTint(CrossTexture* passedTexture, int destX, int destY, float texXScale, float texYScale, unsigned char r, unsigned char g, unsigned char b){
 		EASYFIXCOORDS(&destX,&destY);
 		#if RENDERER == REND_VITA2D
 			vita2d_draw_texture_tint_scale(passedTexture,destX,destY,texXScale,texYScale,RGBA8(r,g,b,255));
@@ -199,7 +199,7 @@
 		#endif
 	}
 
-	void DrawTexturePartScaleTint(CrossTexture* passedTexture, int destX, int destY, int texX, int texY, int texW, int texH, float texXScale, float texYScale, unsigned char r, unsigned char g, unsigned b){
+	void drawTexturePartScaleTint(CrossTexture* passedTexture, int destX, int destY, int texX, int texY, int texW, int texH, float texXScale, float texYScale, unsigned char r, unsigned char g, unsigned b){
 		EASYFIXCOORDS(&destX,&destY);
 		#if RENDERER == REND_VITA2D
 			vita2d_draw_texture_tint_part_scale(passedTexture,destX,destY,texX,texY,texW, texH, texXScale, texYScale,RGBA8(r,g,b,255));
@@ -230,7 +230,7 @@
 		#endif
 	}
 	
-	void DrawTextureScale(CrossTexture* passedTexture, int destX, int destY, float texXScale, float texYScale){
+	void drawTextureScale(CrossTexture* passedTexture, int destX, int destY, float texXScale, float texYScale){
 		EASYFIXCOORDS(&destX,&destY);
 		#if RENDERER == REND_VITA2D
 			vita2d_draw_texture_scale(passedTexture,destX,destY,texXScale,texYScale);
@@ -254,10 +254,10 @@
 		#endif
 	}
 
-	void DrawTextureScaleSize(CrossTexture* passedTexture, int destX, int destY, float texXScale, float texYScale){
+	void drawTextureScaleSize(CrossTexture* passedTexture, int destX, int destY, float texXScale, float texYScale){
 		EASYFIXCOORDS(&destX,&destY);
 		#if RENDERER == REND_VITA2D
-			vita2d_draw_texture_scale(passedTexture,destX,destY,texXScale/(double)GetTextureWidth(passedTexture),texYScale/(double)GetTextureHeight(passedTexture));
+			vita2d_draw_texture_scale(passedTexture,destX,destY,texXScale/(double)getTextureWidth(passedTexture),texYScale/(double)getTextureHeight(passedTexture));
 		#elif RENDERER == REND_SDL
 			SDL_Rect _srcRect;
 			SDL_Rect _destRect;
@@ -279,12 +279,12 @@
 	}
 	
 	// TODO MAKE ROTATE ON WINDOWS
-	void DrawTexturePartScaleRotate(CrossTexture* texture, int x, int y, float tex_x, float tex_y, float tex_w, float tex_h, float x_scale, float y_scale, float rad){
+	void drawTexturePartScaleRotate(CrossTexture* texture, int x, int y, float tex_x, float tex_y, float tex_w, float tex_h, float x_scale, float y_scale, float rad){
 		EASYFIXCOORDS(&x,&y);
 		#if RENDERER == REND_VITA2D
 			vita2d_draw_texture_part_scale_rotate(texture,x,y,tex_x,tex_y,tex_w,tex_h,x_scale,y_scale,rad);
 		#elif RENDERER == REND_SDL
-			DrawTexturePartScale(texture,x,y,tex_x,tex_y,tex_w,tex_h,x_scale,y_scale);
+			drawTexturePartScale(texture,x,y,tex_x,tex_y,tex_w,tex_h,x_scale,y_scale);
 		#elif RENDERER == REND_SF2D
 			sf2d_draw_texture_part_rotate_scale(texture,x,y,rad,tex_x,tex_y,tex_w,tex_h,x_scale,y_scale);
 		#endif
