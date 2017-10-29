@@ -1,10 +1,14 @@
 #ifndef NATHANHAPPYCONFIG
 #define NATHANHAPPYCONFIG
-	
-	char* ANDROIDPACKAGENAME = "put.package.name.here";
-	// 9 characters
-	char* VITAAPPID = "NINELETER";
-	
+	#ifdef ISCOMPILINGLIBRARY
+		extern char* ANDROIDPACKAGENAME;
+		extern char* VITAAPPID;
+	#else
+		char* ANDROIDPACKAGENAME = "good.package.name";
+		// 9 characters
+		char* VITAAPPID = "123456789";
+	#endif
+
 	#define PLAT_VITA 1
 	#define PLAT_COMPUTER 2
 	#define PLAT_3DS 3
