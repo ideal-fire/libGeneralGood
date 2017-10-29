@@ -1,9 +1,9 @@
 #ifndef NATHANHAPPYCONFIG
 #define NATHANHAPPYCONFIG
 	
-	#define ANDROIDPACKAGENAME "put.package.name.here"
+	char* ANDROIDPACKAGENAME = "put.package.name.here";
 	// 9 characters
-	#define VITAAPPID "NINELETER"
+	char* VITAAPPID = "NINELETER";
 	
 	#define PLAT_VITA 1
 	#define PLAT_COMPUTER 2

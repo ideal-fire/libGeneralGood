@@ -25,7 +25,6 @@
 	//	#define EASYFIXCOORDS(x,y)
 	//#endif
 
-
 	unsigned char isSkipping=0;
 	signed char InputValidity = 1;
 
@@ -307,18 +306,24 @@
 	// Passed string should be freed already
 	void generateDefaultDataDirectory(char** _dataDirPointer, char _useUma0){
 		#if SUBPLATFORM == SUB_ANDROID
-			*_dataDirPointer = malloc(strlen("/data/data/"ANDROIDPACKAGENAME"/")+1);
-			strcpy(*_dataDirPointer,"/data/data/"ANDROIDPACKAGENAME"/"+1);
+			*_dataDirPointer = malloc(strlen("/data/data//")+strlen(ANDROIDPACKAGENAME)+1);
+			strcpy(*_dataDirPointer,"/data/data/");
+			strcat(*_dataDirPointer,ANDROIDPACKAGENAME);
+			strcat(*_dataDirPointer,"/");
 		#elif PLATFORM == PLAT_COMPUTER
 			*_dataDirPointer = malloc(strlen("./")+1);
 			strcpy(*_dataDirPointer,"./");
 		#elif PLATFORM == PLAT_VITA
 			if (_useUma0){
-				*_dataDirPointer = malloc(strlen("uma0:data/"VITAAPPID"/")+1);
-				strcpy(*_dataDirPointer,"uma0:data/"VITAAPPID"/");
+				*_dataDirPointer = malloc(strlen("uma0:data//")+strlen(VITAAPPID)+1);
+				strcpy(*_dataDirPointer,"uma0:data/");
+				strcat(*_dataDirPointer,VITAAPPID);
+				strcat(*_dataDirPointer,"/");
 			}else{
-				*_dataDirPointer = malloc(strlen("ux0:data/"VITAAPPID"/")+1);
-				strcpy(*_dataDirPointer,"ux0:data/"VITAAPPID"/");
+				*_dataDirPointer = malloc(strlen("ux0:data//")+strlen(VITAAPPID)+1);
+				strcpy(*_dataDirPointer,"ux0:data/");
+				strcat(*_dataDirPointer,VITAAPPID);
+				strcat(*_dataDirPointer,"/");
 			}
 		#endif
 	}
@@ -350,7 +355,6 @@
 			strcat((char*)_buffer,filename);
 		#endif
 	}
-
 	void makeDataDirectory(){
 		char tempPathFixBuffer[256];
 		fixPath("",tempPathFixBuffer,TYPE_DATA);
@@ -358,5 +362,4 @@
 			createDirectory((const char*)tempPathFixBuffer);
 		}
 	}
-
 #endif
