@@ -23,14 +23,14 @@ Find this section:
 
 Things I've only tested on PS Vita:
 
-If RENDERER is REND_VITA2D, compile with libvita2d.
-If SOUNDPLAYER is SND_SOLOUD, compile with SoLoud.
-If TEXTRENDERER is TEXT_VITA2D, compile with libvita2d.
+* If RENDERER is REND_VITA2D, compile with libvita2d.
+* If SOUNDPLAYER is SND_SOLOUD, compile with SoLoud.
+* If TEXTRENDERER is TEXT_VITA2D, compile with libvita2d.
 
 Things I've only tested on Windows:
 
-If RENDERER is REND_SDL, compile with SDL2.
-If TEXTRENDERER is TEXT_FONTCACHE, compile with SDL_FontCache and SDL_ttf.
-If SOUNDPLAYER is SND_SDL, compile with SDL_mixer.
+* If RENDERER is REND_SDL, compile with SDL2.
+* If TEXTRENDERER is TEXT_FONTCACHE, compile with SDL_FontCache and SDL_ttf.
+* If SOUNDPLAYER is SND_SDL, compile with SDL_mixer.
 
 ---
