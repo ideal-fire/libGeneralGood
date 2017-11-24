@@ -54,7 +54,7 @@
 	}
 	void setSFXVolume(CROSSPLAYHANDLE tochange, int toval){
 		#if SOUNDPLAYER == SND_SDL
-			SetSFXVolumeBefore(tochange,toval);
+			setSFXVolumeBefore(tochange,toval);
 		#elif SOUNDPLAYER == SND_SOLOUD
 			Soloud_setVolume(mySoLoudEngine,tochange,(float)((float)toval/(float)128));
 		#endif

@@ -362,7 +362,7 @@
 			}
 			strcat((char*)_buffer,filename);
 		#elif PLATFORM == PLAT_3DS
-			strcat((char*)_buffer,filename);
+			strcpy((char*)_buffer,filename);
 		#endif
 	}
 	void makeDataDirectory(){
