@@ -18,7 +18,6 @@
 
 	// Renderer stuff
 	#if RENDERER == REND_SDL
-		#define CrossTexture SDL_Texture
 		#include <SDL2/SDL.h>
 		#include <SDL2/SDL_image.h>
 		//The window we'll be rendering to
@@ -29,8 +28,13 @@
 	#endif
 	#if RENDERER == REND_VITA2D
 		#include <vita2d.h>
-		// CROSS TYPES
-		#define CrossTexture vita2d_texture
+	#endif
+	#if RENDERER == REND_SF2D
+		#include <3ds.h>
+		#include <stdio.h>
+		#include <sf2d.h>
+		#include <sfil.h>
+		#include <3ds/svc.h>
 	#endif
 
 	// _windowWidth and _windowHeight are recommendations for the Window size. Will be ignored on Android, Vita, etc.
@@ -59,18 +63,25 @@
 			}
 			showErrorIfNull(mainWindowRenderer);
 			IMG_Init( IMG_INIT_PNG );
+			IMG_Init( IMG_INIT_JPG );
 			SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
+			SDL_SetRenderDrawBlendMode(mainWindowRenderer,SDL_BLENDMODE_BLEND);
+		#elif RENDERER == REND_VITA2D
+			vita2d_init();
+			*_storeWindowWidth=960;
+			*_storeWindowHeight=544;
+			if (_windowWidth!=960 || _windowHeight!=544){
+				printf("Vita force window size.\n");
+			}
+		#elif RENDERER == REND_SF2D
+			sf2d_init();
+			*_storeWindowWidth=400;
+			*_storeWindowHeight=240;
+			if (_windowWidth!=400 || _windowHeight!=240){
+				printf("3ds force window size.\n");
+			}
 		#else
-			#if RENDERER == REND_VITA2D
-				vita2d_init();
-				*_storeWindowWidth=960;
-				*_storeWindowHeight=544;
-				if (_windowWidth!=960 || _windowHeight!=544){
-					printf("Vita force window size.\n");
-				}
-			#else
-				#error Hi, Nathan here. I have to make graphics init function for this renderer. RENDERER
-			#endif
+			#error Hi, Nathan here. I have to make graphics init function for this renderer. RENDERER
 		#endif
 	}
 
@@ -97,6 +108,13 @@
 			sf2d_swapbuffers();
 		#endif
 	}
+
+	#if RENDERER == REND_SF2D
+		void startDrawingBottom(){
+			sf2d_start_frame(GFX_BOTTOM, GFX_LEFT);
+		}
+	#endif
+
 	/*
 	=================================================
 	== IMAGES

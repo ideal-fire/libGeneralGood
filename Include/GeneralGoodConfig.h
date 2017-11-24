@@ -40,16 +40,16 @@
 	#define PRE_ANDROID 4
 	
 	//===============================
-	// (Incomplete) Auto platform
+	// Auto platform
 	//===============================
 	#if _WIN32
 		#define PRESET PRE_COMPUTER
-		#define SUBPLATFORM SUB_WINDOWS
 	#elif __unix__
 		#define PRESET PRE_COMPUTER
-		#define SUBPLATFORM SUB_UNIX
 	#elif __vita__
 		#define PRESET PRE_VITA
+	#elif _3DS
+		#define PRESET PRE_3DS
 	#endif
 	#ifndef PRESET
 		#warning No preset defined. Will use manual settings.
@@ -59,20 +59,34 @@
 	// CHANGE THIS CODE TO CONFIGURE
 	//===============================
 	
-	#define USEUMA0 0
-	#define DOFIXCOORDS 0
+	// These must be changed BEFORE compiling the library.
+		// If the program will use uma0 for the data directory instead of ux0. If you choose to do so, your homebrew will have to be unsafe.
+		#define USEUMA0 1
+		// For some reason, I can't remember what exactly this does. Something for Android.
+		#define DOFIXCOORDS 0
+	// Only affects SDL. Not really worth using this setting. Can be changed after compiling library.
 	#define USEVSYNC 0
 
-	#if PRESET == PRE_COMPUTER
-		#define PLATFORM PLAT_COMPUTER
-		#define SOUNDPLAYER SND_NONE
+	#ifdef FORCESDL
 		#define RENDERER REND_SDL
 		#define TEXTRENDERER TEXT_FONTCACHE
+	#endif
+
+	// Here, you can change the defaults for each platform.
+	#if PRESET == PRE_COMPUTER
+		#define PLATFORM PLAT_COMPUTER
+		#define SOUNDPLAYER SND_SDL
+		#ifndef RENDERER
+			#define RENDERER REND_SDL
+			#define TEXTRENDERER TEXT_FONTCACHE
+		#endif
 	#elif PRESET == PRE_VITA
 		#define PLATFORM PLAT_VITA
-		#define SOUNDPLAYER SND_NONE
-		#define RENDERER REND_VITA2D
-		#define TEXTRENDERER TEXT_VITA2D
+		#define SOUNDPLAYER SND_SOLOUD
+		#ifndef RENDERER
+			#define RENDERER REND_VITA2D
+			#define TEXTRENDERER TEXT_VITA2D
+		#endif
 	#elif PRESET == PRE_3DS
 		#define PLATFORM PLAT_3DS
 		#define SOUNDPLAYER SND_NONE

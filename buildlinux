@@ -1,0 +1,3 @@
+#!/bin/bash
+gcc -LSDL -ISDL -lSDLFontCacheLinux -c src/GeneralMain.c -o GeneralMain.o
+ar rcs libGeneralGoodLinux.a GeneralMain.o

@@ -7,7 +7,16 @@
 		#include <SDL2/SDL_image.h>	
 	#endif
 	#if RENDERER == REND_VITA2D
+		#define CrossTexture vita2d_texture
 		#include <vita2d.h>
+	#endif
+	#if RENDERER == REND_SF2D
+		#define CrossTexture sf2d_texture
+		#include <3ds.h>
+		#include <stdio.h>
+		#include <sf2d.h>
+		#include <sfil.h>
+		#include <3ds/svc.h>
 	#endif
 	
 	/*
@@ -37,7 +46,7 @@
 			// Make good
 			return surfaceToTexture(_tempSurface);
 		#elif RENDERER==REND_SF2D
-			#error no 3ds support yet
+			return sfil_load_PNG_buffer(_passedBuffer,SF2D_PLACE_RAM);
 		#endif
 	}
 	CrossTexture* loadJPGBuffer(void* _passedBuffer, int _passedBufferSize){
@@ -51,7 +60,7 @@
 			// Make good
 			return surfaceToTexture(_tempSurface);
 		#elif RENDERER==REND_SF2D
-			#error no 3ds support yet
+			return sfil_load_JPEG_buffer(_passedBuffer,_passedBufferSize,SF2D_PLACE_RAM);
 		#endif
 	}
 	CrossTexture* loadPNG(char* path){
@@ -76,6 +85,10 @@
 		#endif
 	}
 	void freeTexture(CrossTexture* passedTexture){
+		if (passedTexture==NULL){
+			printf("Don't free NULL textures.");
+			return;
+		}
 		#if RENDERER == REND_VITA2D
 			vita2d_wait_rendering_done();
 			sceDisplayWaitVblankStart();
@@ -195,7 +208,8 @@
 			SDL_RenderCopy(mainWindowRenderer, passedTexture, &_srcRect, &_destRect );
 			SDL_SetTextureColorMod(passedTexture, oldr, oldg, oldb);
 		#elif RENDERER == REND_SF2D
-			sf2d_draw_texture_tint_scale(passedTexture,destX,destY,texXScale,texYScale);
+			sf2d_draw_texture_scale_blend(passedTexture,destX,destY,texXScale,texYScale,RGBA8(r,g,b,255));
+			
 		#endif
 	}
 
@@ -226,7 +240,7 @@
 			SDL_RenderCopy(mainWindowRenderer, passedTexture, &_srcRect, &_destRect );
 			SDL_SetTextureColorMod(passedTexture, oldr, oldg, oldb);
 		#elif RENDERER==REND_SF2D
-			sf2d_draw_texture_part_scale(passedTexture,destX,destY,texX,texY,texW, texH, texXScale, texYScale);
+			sf2d_draw_texture_part_scale_blend(passedTexture,destX,destY,texX,texY,texW, texH, texXScale, texYScale, RGBA8(r,g,b,255));
 		#endif
 	}
 	
@@ -287,6 +301,61 @@
 			drawTexturePartScale(texture,x,y,tex_x,tex_y,tex_w,tex_h,x_scale,y_scale);
 		#elif RENDERER == REND_SF2D
 			sf2d_draw_texture_part_rotate_scale(texture,x,y,rad,tex_x,tex_y,tex_w,tex_h,x_scale,y_scale);
+		#endif
+	}
+	void drawTextureAlpha(CrossTexture* passedTexture, int _destX, int _destY, unsigned char alpha){
+		EASYFIXCOORDS(&_destX,&_destY);
+		#if RENDERER == REND_VITA2D
+			vita2d_draw_texture_tint(passedTexture,_destX,_destY,RGBA8(255,255,255,alpha));
+		#elif RENDERER == REND_SDL
+			unsigned char oldAlpha;
+			SDL_GetTextureAlphaMod(passedTexture, &oldAlpha);
+			SDL_SetTextureAlphaMod(passedTexture, alpha);
+			SDL_Rect _srcRect;
+			SDL_Rect _destRect;
+	
+			SDL_QueryTexture(passedTexture, NULL, NULL, &(_srcRect.w), &(_srcRect.h));
+	
+			_destRect.w=_srcRect.w;
+			_destRect.h=_srcRect.h;
+	
+			_destRect.x=_destX;
+			_destRect.y=_destY;
+			
+			_srcRect.x=0;
+			_srcRect.y=0;
+		
+			SDL_RenderCopy(mainWindowRenderer, passedTexture, &_srcRect, &_destRect );
+			SDL_SetTextureAlphaMod(passedTexture, oldAlpha);
+		#elif RENDERER == REND_SF2D
+			sf2d_draw_texture(passedTexture,_destX,_destY);
+		#endif
+	}
+	void drawTextureScaleAlpha(CrossTexture* passedTexture, int destX, int destY, float texXScale, float texYScale, unsigned char alpha){
+		EASYFIXCOORDS(&destX,&destY);
+		#if RENDERER == REND_VITA2D
+			vita2d_draw_texture_tint_scale(passedTexture,destX,destY,texXScale,texYScale,RGBA8(255,255,255,alpha));
+		#elif RENDERER == REND_SDL
+			unsigned char oldAlpha;
+			SDL_GetTextureAlphaMod(passedTexture, &oldAlpha);
+			SDL_SetTextureAlphaMod(passedTexture, alpha);
+			SDL_Rect _srcRect;
+			SDL_Rect _destRect;
+			SDL_QueryTexture(passedTexture, NULL, NULL, &(_srcRect.w), &(_srcRect.h));
+			
+			_srcRect.x=0;
+			_srcRect.y=0;
+		
+			_destRect.w=(_srcRect.w*texXScale);
+			_destRect.h=(_srcRect.h*texYScale);
+	
+			_destRect.x=destX;
+			_destRect.y=destY;
+	
+			SDL_RenderCopy(mainWindowRenderer, passedTexture, &_srcRect, &_destRect );
+			SDL_SetTextureAlphaMod(passedTexture, oldAlpha);
+		#elif RENDERER == REND_SF2D
+			sf2d_draw_texture_scale(passedTexture,destX,destY,texXScale,texYScale);
 		#endif
 	}
 

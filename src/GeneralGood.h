@@ -18,6 +18,10 @@
 		#include <dirent.h>
 	#endif
 	
+	#if PLATFORM == PLAT_3DS
+		#include <3ds.h>
+		#include <3ds/svc.h>
+	#endif
 	
 	// Headers for wait function
 	#if RENDERER == REND_SDL
@@ -112,6 +116,8 @@
 			} else {
 				return 0;
 			}
+		#elif PLATFORM == PLAT_3DS
+			return 0;
 		#endif
 	}
 
@@ -150,6 +156,9 @@
 	#elif PLATFORM == PLAT_VITA
 		#define CROSSDIR SceUID
 		#define CROSSDIRSTORAGE SceIoDirent
+	#elif PLATFORM == PLAT_3DS
+		#define CROSSDIR int
+		#define CROSSDIRSTORAGE int
 	#endif
 
 	char dirOpenWorked(CROSSDIR passedir){
@@ -161,8 +170,9 @@
 			if (passedir<0){
 				return 0;
 			}
+		#elif PLATFORM == PLAT_3DS
+			return 0;
 		#endif
-		return 1;
 	}
 
 	CROSSDIR openDirectory(const char* filepath){
@@ -170,6 +180,8 @@
 			return opendir(filepath);
 		#elif PLATFORM == PLAT_VITA
 			return (sceIoDopen(filepath));
+		#elif PLATFORM == PLAT_3DS
+			return 1;
 		#endif
 	}
 
@@ -179,6 +191,8 @@
 		#elif PLATFORM == PLAT_VITA
 			//WriteToDebugFile
 			return ((passedStorage)->d_name);
+		#elif PLATFORM == PLAT_3DS
+			return NULL;
 		#endif
 	}
 
@@ -198,6 +212,8 @@
 		#elif PLATFORM == PLAT_VITA
 			int _a = sceIoDread(*passedir,passedStorage);
 			return _a;
+		#elif PLATFORM == PLAT_3DS
+			return 1;
 		#endif
 	}
 

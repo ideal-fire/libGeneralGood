@@ -6,9 +6,9 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 # == CHANGE THE SETTINGS BELOW TO SUIT YOUR ENVIRONMENT =======================
 
 CC= arm-vita-eabi-gcc
-CFLAGS= -O2 -Wall -Wextra -DLUA_COMPAT_5_2 $(SYSCFLAGS) $(MYCFLAGS)
+CFLAGS= -O2 -Wall -Wextra -DLUA_COMPAT_5_2 $(SYSCFLAGS) $(MYCFLAGS) -ISDL
 LDFLAGS= $(SYSLDFLAGS) $(MYLDFLAGS)
-LIBS= -lm $(SYSLIBS) $(MYLIBS)
+LIBS= -lm $(SYSLIBS) $(MYLIBS) -LSDL -lSDLFontCacheVita
 
 AR= ar rc
 RANLIB= ranlib
@@ -27,7 +27,7 @@ MYOBJS=
 
 LUA_A=	libGeneralGoodVita.a
 CORE_O=
-LIB_O=	GeneralMain.o
+LIB_O=	src/GeneralMain.o
 BASE_O= $(CORE_O) $(LIB_O) $(MYOBJS)
 
 ALL_A= $(LUA_A)
@@ -60,6 +60,5 @@ echo:
 
 # Convenience targets for popular platforms
 ALL= all
-
 
 default: $(ALL)

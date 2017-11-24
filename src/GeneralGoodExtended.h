@@ -53,19 +53,20 @@
 		#include <psp2/io/fcntl.h>
 		#include <psp2/io/dirent.h>
 		#include <psp2/power.h>
-
-		// If we're not using SDL, we'll need these
-		#if RENDERER != REND_SDL
-			// Controls at start of frame.
-			SceCtrlData pad;
-			// Controls from start of last frame.
-			SceCtrlData lastPad;
-		#endif
+		// Controls at start of frame.
+		SceCtrlData pad;
+		// Controls from start of last frame.
+		SceCtrlData lastPad;
 	#endif
 	#if PLATFORM == PLAT_COMPUTER
 		// Header for directory functions
 		#include <dirent.h>
 	#endif
+
+	#if PLATFORM == PLAT_3DS
+		#include <3ds/types.h>
+	#endif
+
 	#if PLATFORM != PLAT_VITA
 		enum SceCtrlPadButtons {
 			SCE_CTRL_SELECT      = 0,	//!< Select button.
@@ -92,7 +93,7 @@
 	#endif
 	#if PLATFORM == PLAT_3DS
 		u32 pad;
-		u32 wasJustPad;
+		u32 lastPad;
 	#endif
 
 	// Subplatform Stuff
@@ -107,7 +108,7 @@
 	#endif
 
 	// Renderer stuff
-	#if RENDERER == REND_SDL
+	#if RENDERER == REND_SDL && PLATFORM != PLAT_VITA
 		// Stores control data
 		char pad[21]={0};
 		char lastPad[21]={0};
@@ -151,7 +152,7 @@
 				return 1;
 			}
 		#elif PLATFORM==PLAT_3DS
-			if (wasJustPad & value){
+			if (lastPad & value){
 				return 1;
 			}
 		#endif
@@ -170,7 +171,7 @@
 					return 1;
 				}
 			#elif PLATFORM==PLAT_3DS
-				if (wasJustPad & value){
+				if (lastPad & value){
 					return 1;
 				}
 			#endif
@@ -182,8 +183,7 @@
 		#if PLATFORM == PLAT_VITA
 			sceCtrlPeekBufferPositive(0, &pad, 1);
 			//sceTouchPeek(SCE_TOUCH_PORT_FRONT, &currentTouch, 1);
-		#endif
-		#if RENDERER == REND_SDL
+		#elif RENDERER == REND_SDL
 			SDL_Event e;
 			while( SDL_PollEvent( &e ) != 0 ){
 				if( e.type == SDL_QUIT ){
@@ -258,6 +258,10 @@
 				#endif
 
 			}
+		#elif PLATFORM == PLAT_3DS
+			hidScanInput();
+			lastPad = hidKeysDown();
+			pad = hidKeysHeld();
 		#endif
 	}
 
@@ -266,6 +270,8 @@
 			lastPad=pad;
 		#elif PLATFORM == PLAT_COMPUTER
 			memcpy(lastPad,pad,sizeof(pad));
+		#elif PLATFORM == PLAT_3DS
+			// I guess I don't need this.
 		#endif
 	}
 
@@ -325,6 +331,8 @@
 				strcat(*_dataDirPointer,VITAAPPID);
 				strcat(*_dataDirPointer,"/");
 			}
+		#elif PLATFORM == PLAT_3DS
+			*_dataDirPointer = calloc(1,2);
 		#endif
 	}
 
@@ -352,6 +360,8 @@
 			}else if (type==TYPE_EMBEDDED){
 				strcpy((char*)_buffer,"app0:");
 			}
+			strcat((char*)_buffer,filename);
+		#elif PLATFORM == PLAT_3DS
 			strcat((char*)_buffer,filename);
 		#endif
 	}

@@ -41,6 +41,8 @@
 			return Mix_VolumeMusic(-1);
 		#elif SOUNDPLAYER == SND_SOLOUD
 			return Soloud_getVolume(mySoLoudEngine,_passedMusicHandle)*128;
+		#elif SOUNDPLAYER == SND_NONE
+			return 0;
 		#endif
 	}
 	void setSFXVolumeBefore(CROSSSFX* tochange, int toval){
@@ -68,7 +70,7 @@
 		#if SOUNDPLAYER == SND_SDL
 			Mix_VolumeMusic(vol);
 		#elif SOUNDPLAYER == SND_SOLOUD
-			SetSFXVolume(_passedMusic,vol);
+			setSFXVolume(_passedMusic,vol);
 		#endif
 	}
 	void fadeoutMusic(CROSSPLAYHANDLE _passedHandle,int time){
@@ -86,7 +88,7 @@
 			CROSSSFX* _myLoadedSoundEffect = Wav_create();
 			Wav_load(_myLoadedSoundEffect,filepath);
 			return _myLoadedSoundEffect;
-		#else
+		#elif SOUNDPLAYER == SND_NONE
 			return NULL;
 		#endif
 	}
@@ -97,7 +99,7 @@
 			CROSSMUSIC* _myLoadedMusic = WavStream_create();
 			WavStream_load(_myLoadedMusic,filepath);
 			return _myLoadedMusic;
-		#else
+		#elif SOUNDPLAYER == SND_NONE
 			return NULL;
 		#endif
 	}
@@ -124,6 +126,14 @@
 			}
 		#endif
 	}
+	void stopSound(CROSSSFX* toStop){
+		#if SOUNDPLAYER == SND_SDL
+			#warning CANT STOP SOUND WITH SDL_MIXER
+		#elif SOUNDPLAYER == SND_SOLOUD
+			Wav_stop(toStop);
+		#endif
+	}
+
 	CROSSPLAYHANDLE playSound(CROSSSFX* toPlay, int timesToPlay){
 		#if SOUNDPLAYER == SND_SDL
 			Mix_PlayChannel( -1, toPlay, timesToPlay-1 );
@@ -133,6 +143,8 @@
 				printf("SoLoud can only play a sound once!");
 			}
 			return Soloud_play(mySoLoudEngine,toPlay);
+		#elif SOUNDPLAYER == SND_NONE
+			return 0;
 		#endif
 	}
 	CROSSPLAYHANDLE playMusic(CROSSMUSIC* toPlay){
@@ -142,6 +154,8 @@
 		#elif SOUNDPLAYER == SND_SOLOUD
 			WavStream_setLooping(toPlay,1);
 			return Soloud_play(mySoLoudEngine,toPlay);
+		#elif SOUNDPLAYER == SND_NONE
+			return 1;
 		#endif
 	}
 	void freeSound(CROSSSFX* toFree){

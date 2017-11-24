@@ -1,0 +1,3 @@
+#!/bin/bash
+gcc -c SDL_FontCache.c -o SDL_FontCache.o
+ar rcs libSDLFontCacheLinux.a SDL_FontCache.o

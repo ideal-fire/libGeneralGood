@@ -1,6 +1,14 @@
 #ifndef GENERALGOODTEXT_H
 #define GENERALGOODTEXT_H
-
+// Text Stuff
+	#if TEXTRENDERER == TEXT_FONTCACHE
+		#include <SDL_FontCache.h>
+		#define CrossFont FC_Font
+	#elif TEXTRENDERER == TEXT_DEBUG
+		#define CrossFont CrossTexture
+	#elif TEXTRENDERER == TEXT_VITA2D
+		#define CrossFont vita2d_font
+	#endif
 #if TEXTRENDERER == TEXT_DEBUG
 	extern float fontSize;
 #endif
