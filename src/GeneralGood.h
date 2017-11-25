@@ -21,6 +21,7 @@
 	#if PLATFORM == PLAT_3DS
 		#include <3ds.h>
 		#include <3ds/svc.h>
+		FS_Archive _sdArchive=0;
 	#endif
 	
 	// Headers for wait function
@@ -50,6 +51,19 @@
 	typedef int16_t		s16;
 	typedef int32_t		s32;
 	typedef int64_t		s64;
+
+	#if PLATFORM == PLAT_3DS
+		void openSDArchiveIfHaveNot(){
+			if (_sdArchive==0){
+				FSUSER_OpenArchive(&_sdArchive, ARCHIVE_SDMC, fsMakePath(PATH_EMPTY, ""));
+			}
+		}
+		void utf2ascii(char* dst, u16* src){
+			if(!src || !dst)return;
+			while(*src)*(dst++)=(*(src++))&0xFF;
+			*dst=0x00;
+		}
+	#endif
 
 	// Waits for a number of miliseconds.
 	void wait(int miliseconds){
@@ -117,7 +131,13 @@
 				return 0;
 			}
 		#elif PLATFORM == PLAT_3DS
-			return 0;
+			FILE* fp = fopen(location,"r");
+			if (fp==NULL){
+				return 0;
+			}else{
+				fclose(fp);
+				return 1;
+			}
 		#endif
 	}
 
@@ -130,6 +150,9 @@
 			#else
 				mkdir(path);
 			#endif
+		#elif PLATFORM == PLAT_3DS
+			openSDArchiveIfHaveNot();
+			FSUSER_CreateDirectory(_sdArchive, fsMakePath(PATH_ASCII, path), 0);
 		#endif
 	}
 	#ifndef ISUSINGEXTENDED
@@ -157,8 +180,8 @@
 		#define CROSSDIR SceUID
 		#define CROSSDIRSTORAGE SceIoDirent
 	#elif PLATFORM == PLAT_3DS
-		#define CROSSDIR int
-		#define CROSSDIRSTORAGE int
+		#define CROSSDIR Handle
+		#define CROSSDIRSTORAGE FS_DirectoryEntry
 	#endif
 
 	char dirOpenWorked(CROSSDIR passedir){
@@ -171,8 +194,11 @@
 				return 0;
 			}
 		#elif PLATFORM == PLAT_3DS
-			return 0;
+			if (passedir==0){
+				return 0;
+			}
 		#endif
+		return 1;
 	}
 
 	CROSSDIR openDirectory(const char* filepath){
@@ -181,7 +207,13 @@
 		#elif PLATFORM == PLAT_VITA
 			return (sceIoDopen(filepath));
 		#elif PLATFORM == PLAT_3DS
-			return 1;
+			openSDArchiveIfHaveNot();
+			FS_Path _stupidPath=fsMakePath(PATH_ASCII, filepath);
+			CROSSDIR _openedDirectory;
+			if (FSUSER_OpenDirectory(&_openedDirectory, _sdArchive, _stupidPath)!=0){
+				return 0;
+			}
+			return _openedDirectory;
 		#endif
 	}
 
@@ -192,10 +224,11 @@
 			//WriteToDebugFile
 			return ((passedStorage)->d_name);
 		#elif PLATFORM == PLAT_3DS
-			return NULL;
+			return (char*)(passedStorage->name);
 		#endif
 	}
 
+	// Return 0 if not work
 	int directoryRead(CROSSDIR* passedir, CROSSDIRSTORAGE* passedStorage){
 		#if PLATFORM == PLAT_COMPUTER
 			*passedStorage = readdir (*passedir);
@@ -213,7 +246,16 @@
 			int _a = sceIoDread(*passedir,passedStorage);
 			return _a;
 		#elif PLATFORM == PLAT_3DS
-			return 1;
+			u32 _didReadSomething=0;
+			FSDIR_Read(*passedir, &_didReadSomething, 1, passedStorage);
+			if (_didReadSomething!=0){
+				u16* _tempName = passedStorage->name;
+				char _tempBuffer[256]; // plz no bigger
+				utf2ascii(_tempBuffer,_tempName);
+				int _foundStrlen = strlen(_tempBuffer);
+				memcpy(_tempName,_tempBuffer,_foundStrlen+1);
+			}
+			return _didReadSomething;
 		#endif
 	}
 
@@ -222,6 +264,8 @@
 			closedir(passedir);
 		#elif PLATFORM == PLAT_VITA
 			sceIoDclose(passedir);
+		#elif PLATFORM == PLAT_3DS
+			FSDIR_Close(passedir);
 		#endif
 	}
 

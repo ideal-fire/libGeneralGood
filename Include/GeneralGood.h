@@ -16,6 +16,7 @@
 #if PLATFORM == PLAT_3DS
 	#include <3ds/svc.h>
 	#include <3ds/types.h>
+	#include <3ds/services/fs.h>
 #endif
 
 #if PLATFORM == PLAT_COMPUTER
@@ -25,8 +26,8 @@
 	#define CROSSDIR SceUID
 	#define CROSSDIRSTORAGE SceIoDirent
 #elif PLATFORM == PLAT_3DS
-	#define CROSSDIR int
-	#define CROSSDIRSTORAGE int
+	#define CROSSDIR Handle
+	#define CROSSDIRSTORAGE FS_DirectoryEntry
 #endif
 
 #if RENDERER == REND_SDL

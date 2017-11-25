@@ -332,7 +332,8 @@
 				strcat(*_dataDirPointer,"/");
 			}
 		#elif PLATFORM == PLAT_3DS
-			*_dataDirPointer = calloc(1,2);
+			*_dataDirPointer = malloc(2);
+			strcpy(*_dataDirPointer,"/");
 		#endif
 	}
 
@@ -362,7 +363,8 @@
 			}
 			strcat((char*)_buffer,filename);
 		#elif PLATFORM == PLAT_3DS
-			strcpy((char*)_buffer,filename);
+			strcpy((char*)_buffer,"/");
+			strcat((char*)_buffer,filename);
 		#endif
 	}
 	void makeDataDirectory(){

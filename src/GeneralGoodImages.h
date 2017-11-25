@@ -328,7 +328,7 @@
 			SDL_RenderCopy(mainWindowRenderer, passedTexture, &_srcRect, &_destRect );
 			SDL_SetTextureAlphaMod(passedTexture, oldAlpha);
 		#elif RENDERER == REND_SF2D
-			sf2d_draw_texture(passedTexture,_destX,_destY);
+			sf2d_draw_texture_blend(passedTexture,_destX,_destY,RGBA8(255,255,255,alpha));
 		#endif
 	}
 	void drawTextureScaleAlpha(CrossTexture* passedTexture, int destX, int destY, float texXScale, float texYScale, unsigned char alpha){
@@ -355,7 +355,7 @@
 			SDL_RenderCopy(mainWindowRenderer, passedTexture, &_srcRect, &_destRect );
 			SDL_SetTextureAlphaMod(passedTexture, oldAlpha);
 		#elif RENDERER == REND_SF2D
-			sf2d_draw_texture_scale(passedTexture,destX,destY,texXScale,texYScale);
+			sf2d_draw_texture_scale_blend(passedTexture,destX,destY,texXScale,texYScale,RGBA8(255,255,255,alpha));
 		#endif
 	}
 
