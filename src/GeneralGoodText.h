@@ -1,3 +1,4 @@
+#if TEXTRENDERER != TEXT_UNDEFINED
 #ifndef GENERALGOODTEXTHEADER
 #define GENERALGOODTEXTHEADER
 	// Text Stuff
@@ -11,8 +12,6 @@
 	#endif
 
 	CrossFont* fontImage=NULL;
-	CrossFont* fontImage2=NULL;
-	CrossFont* fontImage3=NULL;
 
 	char bitmapFontWidth=14;
 	char bitmapFontHeight=15;
@@ -29,17 +28,48 @@
 		int fontSize=32;
 	#endif
 
+	#if TEXTRENDERER == TEXT_DEBUG
+		typedef struct gfreughrue{
+			int x;
+			int y;
+			int imageWidth;
+			int imageHeight;
+			int imageDisplayWidth;
+		}BitmapFontLetter;
+		
+		BitmapFontLetter bitmapFontLetterInfo[95];
+		unsigned short maxBitmapCharacterHeight = 12;
+
+		void drawLetter(int letterId, int _x, int _y, float size){
+			letterId-=32;
+			drawTexturePartScale(fontImage,_x,_y+bitmapFontLetterInfo[letterId].y,bitmapFontLetterInfo[letterId].x,bitmapFontLetterInfo[letterId].y,bitmapFontLetterInfo[letterId].imageWidth,bitmapFontLetterInfo[letterId].imageHeight,size,size);
+		}
+		void drawLetterColor(int letterId, int _x, int _y, float size, unsigned char r, unsigned char g, unsigned char b){
+			letterId-=32;
+			drawTexturePartScaleTint(fontImage,_x,_y+bitmapFontLetterInfo[letterId].y,bitmapFontLetterInfo[letterId].x,bitmapFontLetterInfo[letterId].y,bitmapFontLetterInfo[letterId].imageWidth,bitmapFontLetterInfo[letterId].imageHeight,size,size,r,g,b);
+		}
+	#endif
+
 	void loadFont(char* filename){
 		#if TEXTRENDERER == TEXT_DEBUG
 			char _fixedPathBuffer[256];
 			fixPath(filename,_fixedPathBuffer,TYPE_EMBEDDED);
-			char _specificFontImageBuffer[strlen(_fixedPathBuffer)+1+1];
-			sprintf(_specificFontImageBuffer, "%s%d", _fixedPathBuffer, 1);
+			// Load bitmap font image
+			char _specificFontImageBuffer[strlen(_fixedPathBuffer)+5+1]; // filepath + extention + null
+			sprintf(_specificFontImageBuffer, "%s%s", _fixedPathBuffer, ".png");
 			fontImage=loadPNG(_specificFontImageBuffer);
-			sprintf(_specificFontImageBuffer, "%s%d", _fixedPathBuffer, 2);
-			fontImage2=loadPNG(_specificFontImageBuffer);
-			sprintf(_specificFontImageBuffer, "%s%d", _fixedPathBuffer, 3);
-			fontImage3=loadPNG(_specificFontImageBuffer);
+			
+			// Load font info
+			sprintf(_specificFontImageBuffer, "%s%s", _fixedPathBuffer, ".info");
+			FILE* fp = fopen(_specificFontImageBuffer,"r");
+			int i;
+			for (i=0;i<95;i++){
+				fscanf(fp,"%d %d %d %d %d\n",&(bitmapFontLetterInfo[i].x),&(bitmapFontLetterInfo[i].y),&(bitmapFontLetterInfo[i].imageWidth),&(bitmapFontLetterInfo[i].imageHeight),&(bitmapFontLetterInfo[i].imageDisplayWidth));
+				if (bitmapFontLetterInfo[i].imageHeight>maxBitmapCharacterHeight){
+					maxBitmapCharacterHeight=bitmapFontLetterInfo[i].imageHeight;
+				}
+			}
+			fclose(fp);
 		#elif TEXTRENDERER == TEXT_FONTCACHE
 			//fontSize = (SCREENHEIGHT-TEXTBOXY)/3.5;
 			FC_FreeFont(fontImage);
@@ -57,7 +87,7 @@
 
 	int textHeight(float scale){
 		#if TEXTRENDERER == TEXT_DEBUG
-			return (bitmapFontHeight*scale);
+			return (maxBitmapCharacterHeight*scale);
 		#elif TEXTRENDERER == TEXT_VITA2D
 			return vita2d_font_text_height(fontImage,scale,"a");
 		#elif TEXTRENDERER == TEXT_FONTCACHE
@@ -68,54 +98,28 @@
 	// Please always use the same font size
 	int textWidth(float scale, const char* message){
 		#if TEXTRENDERER == TEXT_DEBUG
-			return floor((bitmapFontWidth*scale)*strlen(message));
+			int _currentWidth=0;
+			int i;
+			for (i=0;i<strlen(message);i++){
+				_currentWidth+=(bitmapFontLetterInfo[message[i]-32].imageDisplayWidth)*scale;
+			}
+			return _currentWidth;
 		#elif TEXTRENDERER == TEXT_VITA2D
 			return vita2d_font_text_width(fontImage,scale,message);
 		#elif TEXTRENDERER == TEXT_FONTCACHE
 			return FC_GetWidth(fontImage,"%s",message);
 		#endif
 	}
-	
-	#if TEXTRENDERER == TEXT_DEBUG
-		void drawLetter(int letterId, int _x, int _y, float size){
-			letterId-=32;
-			CrossFont* _tempFontToUse;
-			if (letterId<bitmapFontLettersPerImage){
-				_tempFontToUse = fontImage;
-			}else if (letterId<bitmapFontLettersPerImage*2){
-				_tempFontToUse = fontImage2;
-				letterId-=bitmapFontLettersPerImage;
-			}else{
-				_tempFontToUse = fontImage3;
-				letterId-=bitmapFontLettersPerImage*2;
-			}
-			drawTexturePartScale(_tempFontToUse,_x,_y,(letterId)*(bitmapFontWidth),0,bitmapFontWidth,bitmapFontHeight,size,size);
-		}
-		void drawLetterColor(int letterId, int _x, int _y, float size, unsigned char r, unsigned char g, unsigned char b){
-			letterId-=32;
-			CrossFont* _tempFontToUse;
-			if (letterId<bitmapFontLettersPerImage){
-				_tempFontToUse = fontImage;
-			}else if (letterId<bitmapFontLettersPerImage*2){
-				_tempFontToUse = fontImage2;
-				letterId-=bitmapFontLettersPerImage;
-			}else{
-				_tempFontToUse = fontImage3;
-				letterId-=bitmapFontLettersPerImage*2;
-			}
-			drawTexturePartScaleTint(_tempFontToUse,_x,_y,(letterId)*(bitmapFontWidth),0,bitmapFontWidth,bitmapFontHeight,size,size,r,g,b);
-		}
-	#endif	
 	void goodDrawTextColored(int x, int y, const char* text, float size, unsigned char r, unsigned char g, unsigned char b){
 		#if TEXTRENDERER == TEXT_VITA2D
 			EASYFIXCOORDS(&x,&y);
 			vita2d_font_draw_text(fontImage,x,y+textHeight(size), RGBA8(r,g,b,255),floor(size),text);
 		#elif TEXTRENDERER == TEXT_DEBUG
 			int i=0;
-			int notICounter=0;
+			int _currentDrawTextX=x;
 			for (i = 0; i < strlen(text); i++){
-				drawLetterColor(text[i],(x+(notICounter*(bitmapFontWidth*size))),(y),size,r,g,b);
-				notICounter++;
+				drawLetterColor(text[i],_currentDrawTextX,y,size,r,g,b);
+				_currentDrawTextX+=bitmapFontLetterInfo[text[i]-32].imageDisplayWidth;
 			}
 		#elif TEXTRENDERER == TEXT_FONTCACHE
 			EASYFIXCOORDS(&x,&y);
@@ -133,14 +137,15 @@
 			vita2d_font_draw_text(fontImage,x,y+textHeight(size), RGBA8(255,255,255,255),floor(size),text);
 		#elif TEXTRENDERER == TEXT_DEBUG
 			int i=0;
-			int notICounter=0;
+			int _currentDrawTextX=x;
 			for (i = 0; i < strlen(text); i++){
-				drawLetter(text[i],(x+(notICounter*(bitmapFontWidth*size))),(y),size);
-				notICounter++;
+				drawLetter(text[i],_currentDrawTextX,y,size);
+				_currentDrawTextX+=bitmapFontLetterInfo[text[i]-32].imageDisplayWidth;
 			}
 		#elif TEXTRENDERER == TEXT_FONTCACHE
 			goodDrawTextColored(x,y,text,size,255,255,255);
 		#endif
 	}
 
+#endif
 #endif

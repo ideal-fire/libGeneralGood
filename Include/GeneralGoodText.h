@@ -11,9 +11,6 @@
 	#endif
 #if TEXTRENDERER == TEXT_DEBUG
 	extern float fontSize;
-	extern char bitmapFontWidth;
-	extern char bitmapFontHeight;
-	extern short bitmapFontLettersPerImage;
 #endif
 #if TEXTRENDERER == TEXT_FONTCACHE
 	//int fontSize = 20;
