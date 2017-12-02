@@ -1,3 +1,6 @@
+#ifndef TREEDEESHSOUND
+#define TREEDEESHSOUND
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,7 +29,6 @@ typedef struct{
 	unsigned char _musicShoudLoop;
 	char _musicIsDone;
 }NathanMusic;
-
 
 // Returns -1 if error
 // Returns 1 if EOF
@@ -78,7 +80,6 @@ signed char nathanUpdateAudioBuffer(OggVorbis_File* _passedOggFile, char* _passe
 	_passedWaveBuffer->nsamples = (_soundBufferWriteOffset/BYTESPERSAMPLE)/2; // I guess we divide the number by 2 because it's stereo
 	return _returnCode;
 }
-
 signed char nathannathanUpdateAudioBufferNathanMusic(NathanMusic* _passedMusic, int _passedBufferNumber){
 	return nathanUpdateAudioBuffer(&(_passedMusic->_musicOggFile),_passedMusic->_musicMusicBuffer[_passedBufferNumber], &(_passedMusic->_musicWaveBuffer[_passedBufferNumber]),&(_passedMusic->_musicOggCurrentSection),_passedMusic->_musicShoudLoop);
 }
@@ -175,3 +176,11 @@ void nathanFreeMusic(NathanMusic* _passedMusic){
 	}
 	ov_clear(&(_passedMusic->_musicOggFile));
 }
+void nathanSetChannelVolume(int _channelNumber, float _volume){
+	float mix[12];
+	memset(mix, 0, sizeof(mix));
+	mix[0] = _volume;
+	mix[1] = _volume;
+	ndspChnSetMix(_channelNumber, mix);
+}
+#endif

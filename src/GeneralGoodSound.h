@@ -33,7 +33,7 @@
 		#include "3dsSound.h"
 		#define CROSSMUSIC NathanMusic
 		#define CROSSSFX int
-		#define CROSSPLAYHANDLE int
+		#define CROSSPLAYHANDLE unsigned char
 	#endif
 
 	void initAudio(){
@@ -86,22 +86,22 @@
 			// TODO
 		#endif
 	}
-	void setMusicVolumeBefore(CROSSMUSIC* _passedMusic,int vol){
-		#if SOUNDPLAYER == SND_SDL
-			Mix_VolumeMusic(vol);
-		#elif SOUNDPLAYER == SND_SOLOUD
-			WavStream_setVolume(_passedMusic,(float)((float)vol/(float)128));
-		#elif SOUNDPLAYER == SND_3DS
-			// TODO
-		#endif
-	}
 	void setMusicVolume(CROSSPLAYHANDLE _passedMusic,int vol){
 		#if SOUNDPLAYER == SND_SDL
 			Mix_VolumeMusic(vol);
 		#elif SOUNDPLAYER == SND_SOLOUD
 			setSFXVolume(_passedMusic,vol);
 		#elif SOUNDPLAYER == SND_3DS
-			// TODO
+			nathanSetChannelVolume(_passedMusic,(float)(((double)vol)/128));
+		#endif
+	}
+	void setMusicVolumeBefore(CROSSMUSIC* _passedMusic,int vol){
+		#if SOUNDPLAYER == SND_SDL
+			Mix_VolumeMusic(vol);
+		#elif SOUNDPLAYER == SND_SOLOUD
+			WavStream_setVolume(_passedMusic,(float)((float)vol/(float)128));
+		#elif SOUNDPLAYER == SND_3DS
+			setMusicVolume(_passedMusic->_musicChannel, vol);
 		#endif
 	}
 	void fadeoutMusic(CROSSPLAYHANDLE _passedHandle,int time){
@@ -136,7 +136,6 @@
 			WavStream_load(_myLoadedMusic,filepath);
 			return _myLoadedMusic;
 		#elif SOUNDPLAYER == SND_3DS
-			// TODO
 			NathanMusic* _tempReturn = malloc(sizeof(NathanMusic));
 			nathanLoadMusic(_tempReturn,filepath,0,1);
 			return _tempReturn;
@@ -150,7 +149,7 @@
 		#elif SOUNDPLAYER == SND_SOLOUD
 			Soloud_setPause(mySoLoudEngine,_passedHandle, 1);
 		#elif SOUNDPLAYER == SND_3DS
-			// TODO
+			ndspChnSetPaused(_passedHandle,1);
 		#endif
 	}
 	void resumeMusic(CROSSPLAYHANDLE _passedHandle){
@@ -159,18 +158,16 @@
 		#elif SOUNDPLAYER == SND_SOLOUD
 			Soloud_setPause(mySoLoudEngine,_passedHandle, 0);
 		#elif SOUNDPLAYER == SND_3DS
-			// TODO
+			ndspChnSetPaused(_passedHandle,0);
 		#endif
 	}
-	void stopMusic(CROSSMUSIC* toStop){
+	void stopMusic(CROSSPLAYHANDLE toStop){
 		#if SOUNDPLAYER == SND_SDL
 			Mix_HaltMusic();
 		#elif SOUNDPLAYER == SND_SOLOUD
-			if (toStop!=NULL){
-				WavStream_stop(toStop);
-			}
+			Soloud_stop(mySoLoudEngine,toStop);
 		#elif SOUNDPLAYER == SND_3DS
-			// TODO
+			ndspChnWaveBufClear(toStop);
 		#endif
 	}
 	void stopSound(CROSSSFX* toStop){
@@ -208,7 +205,7 @@
 			return Soloud_play(mySoLoudEngine,toPlay);
 		#elif SOUNDPLAYER == SND_3DS
 			nathanPlayMusic(toPlay);
-			return 1;
+			return toPlay->_musicChannel;
 		#elif SOUNDPLAYER == SND_NONE
 			return 1;
 		#endif
