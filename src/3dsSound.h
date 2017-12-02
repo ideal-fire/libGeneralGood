@@ -147,7 +147,7 @@ void nathanLoadSoundEffect(NathanMusic* _passedMusic, char* _filename){
 			break;
 		}
 	}
-	for (;i<10;i++){
+	for (i++;i<10;i++){
 		_passedMusic->_musicMusicBuffer[i]=NULL;
 	}
 }
