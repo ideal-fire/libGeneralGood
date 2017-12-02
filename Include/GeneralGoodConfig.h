@@ -21,8 +21,7 @@
 	#define SND_NONE 0
 	#define SND_SDL 1
 	#define SND_SOLOUD 2
-	// Only OGG supported
-	#define SND_3DS 3
+	#define SND_3DS 3 // Only OGG supported
 
 	#define REND_UNDEFINED 0
 	#define REND_SDL 1
