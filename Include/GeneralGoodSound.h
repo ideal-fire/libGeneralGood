@@ -28,8 +28,8 @@
 	#include <vorbis/vorbisfile.h>
 	typedef struct{
 		OggVorbis_File _musicOggFile;
-		char* _musicMusicBuffer[2];
-		ndspWaveBuf _musicWaveBuffer[2];
+		char* _musicMusicBuffer[10];
+		ndspWaveBuf _musicWaveBuffer[10];
 		int _musicOggCurrentSection; // Use by libvorbis
 		char _musicIsTwoBuffers;
 		unsigned char _musicChannel;
@@ -37,11 +37,11 @@
 		char _musicIsDone;
 	}NathanMusic;
 	#define CROSSMUSIC NathanMusic
-	#define CROSSSFX int
+	#define CROSSSFX NathanMusic
 	#define CROSSPLAYHANDLE int
 	void nathanUpdateMusicIfNeeded(NathanMusic* _passedMusic);
 #endif
-	
+
 void fadeoutMusic(CROSSPLAYHANDLE _passedHandle,int time);
 void freeMusic(CROSSMUSIC* toFree);
 void freeSound(CROSSSFX* toFree);
@@ -50,8 +50,8 @@ void initAudio();
 CROSSMUSIC* loadMusic(char* filepath);
 CROSSSFX* loadSound(char* filepath);
 void pauseMusic(CROSSPLAYHANDLE _passedHandle);
-CROSSPLAYHANDLE playMusic(CROSSMUSIC* toPlay);
-CROSSPLAYHANDLE playSound(CROSSSFX* toPlay, int timesToPlay);
+CROSSPLAYHANDLE playMusic(CROSSMUSIC* toPlay, unsigned char _passedChannel);
+CROSSPLAYHANDLE playSound(CROSSSFX* toPlay, int timesToPlay, unsigned char _passedChannel);
 void resumeMusic(CROSSPLAYHANDLE _passedHandle);
 void setMusicVolumeBefore(CROSSMUSIC* _passedMusic,int vol);
 void setMusicVolume(CROSSPLAYHANDLE _passedMusic,int vol);

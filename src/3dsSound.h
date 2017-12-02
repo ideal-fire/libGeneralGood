@@ -1,3 +1,4 @@
+// SNDPLAYER == SND_3DS
 #ifndef TREEDEESHSOUND
 #define TREEDEESHSOUND
 
@@ -21,9 +22,9 @@ long storedTotalSamples;
 
 typedef struct{
 	OggVorbis_File _musicOggFile;
-	char* _musicMusicBuffer[2];
-	ndspWaveBuf _musicWaveBuffer[2];
-	int _musicOggCurrentSection; // Use by libvorbis
+	char* _musicMusicBuffer[10]; // Only 2 used normally. Up 10 for single buffer sound effects
+	ndspWaveBuf _musicWaveBuffer[10];
+	int _musicOggCurrentSection; // Used by libvorbis
 	char _musicIsTwoBuffers;
 	unsigned char _musicChannel;
 	unsigned char _musicShoudLoop;
@@ -41,6 +42,7 @@ signed char nathanUpdateAudioBuffer(OggVorbis_File* _passedOggFile, char* _passe
 		// Read from my OGG file, at the correct offset in my buffer, I can read 4096 bytes at most, big endian, 16-bit samples, and signed samples
 		long ret=ov_read(_passedOggFile,&(_passedAudioBuffer[_soundBufferWriteOffset]),SINGLEOGGREAD,0,2,1,_passedCurrentSection);
 		if (ret == 0) {
+			printf("eof reached: %lld, %d\n",_soundBufferWriteOffset,_passedShouldLoop);
 			// EOF
 			if (_soundBufferWriteOffset==0){
 				if (_passedShouldLoop==1){
@@ -91,7 +93,7 @@ long nathanGetMusicRate(NathanMusic* _passedMusic){
 	vorbis_info* vi=ov_info(&(_passedMusic->_musicOggFile),-1);
 	return vi->rate;
 }
-void nathanLoadMusic(NathanMusic* _passedMusic, char* _filename, unsigned char _channelNumber, unsigned char _passedShouldLoop){
+void nathanLoadMusic(NathanMusic* _passedMusic, char* _filename, unsigned char _passedShouldLoop){
 	_passedMusic->_musicShoudLoop=_passedShouldLoop;
 	_passedMusic->_musicIsTwoBuffers=0;
 	_passedMusic->_musicIsDone=0;
@@ -123,8 +125,31 @@ void nathanLoadMusic(NathanMusic* _passedMusic, char* _filename, unsigned char _
 	}else{
 		_passedMusic->_musicMusicBuffer[1]=NULL;
 	}
-
-	_passedMusic->_musicChannel=_channelNumber;
+}
+void nathanLoadSoundEffect(NathanMusic* _passedMusic, char* _filename){
+	_passedMusic->_musicShoudLoop=0;
+	_passedMusic->_musicIsTwoBuffers=0;
+	_passedMusic->_musicIsDone=0;
+	FILE* fp = fopen(_filename,"r");
+	if(ov_open(fp, &(_passedMusic->_musicOggFile), NULL, 0) != 0){
+		fclose(fp);
+		printf("open not worked!\n");
+		return;
+	}
+	if (nathanGetMusicNumberOfChannels(_passedMusic)!=2){
+		return;
+	}
+	int i;
+	for (i=0;i<10;i++){
+		_passedMusic->_musicIsTwoBuffers++; // With sound effect, this is number of buffers
+		_passedMusic->_musicMusicBuffer[i] = linearAlloc(MAXBUFFERSIZE);
+		if (nathannathanUpdateAudioBufferNathanMusic(_passedMusic,i)==1){
+			break;
+		}
+	}
+	for (;i<10;i++){
+		_passedMusic->_musicMusicBuffer[i]=NULL;
+	}
 }
 void nathanQueueMusic3ds(ndspWaveBuf* _musicToPlay, int _channelNumber){
 	// Put in queue
@@ -146,12 +171,22 @@ void nathanInit3dsChannel(int _channelNumber){
 	mix[1] = 1.0;
 	ndspChnSetMix(_channelNumber, mix);
 }
-void nathanPlayMusic(NathanMusic* _passedMusic){
+void nathanPlayMusic(NathanMusic* _passedMusic, unsigned char _channelNumber){
+	_passedMusic->_musicChannel=_channelNumber;
 	_passedMusic->_musicIsDone=0;
 	ndspChnSetRate(_passedMusic->_musicChannel, nathanGetMusicRate(_passedMusic));
 	nathanQueueMusic3ds(&(_passedMusic->_musicWaveBuffer[0]),_passedMusic->_musicChannel);
 	if (_passedMusic->_musicIsTwoBuffers==1){
 		nathanQueueMusic3ds(&(_passedMusic->_musicWaveBuffer[1]),_passedMusic->_musicChannel);
+	}
+}
+void nathanPlaySound(NathanMusic* _passedMusic, unsigned char _channelNumber){
+	_passedMusic->_musicChannel=_channelNumber;
+	_passedMusic->_musicIsDone=0;
+	ndspChnSetRate(_passedMusic->_musicChannel, nathanGetMusicRate(_passedMusic));
+	int i;
+	for (i=0;i<_passedMusic->_musicIsTwoBuffers;i++){
+		nathanQueueMusic3ds(&(_passedMusic->_musicWaveBuffer[i]),_passedMusic->_musicChannel);
 	}
 }
 void nathanUpdateMusicIfNeeded(NathanMusic* _passedMusic){
@@ -176,6 +211,14 @@ void nathanFreeMusic(NathanMusic* _passedMusic){
 	}
 	ov_clear(&(_passedMusic->_musicOggFile));
 }
+void nathanFreeSound(NathanMusic* _passedMusic){
+	ndspChnWaveBufClear(_passedMusic->_musicChannel);
+	int i;
+	for (i=0;i<_passedMusic->_musicIsTwoBuffers;i++){
+		linearFree(_passedMusic->_musicMusicBuffer[i]);
+	}
+	ov_clear(&(_passedMusic->_musicOggFile));
+}
 void nathanSetChannelVolume(int _channelNumber, float _volume){
 	float mix[12];
 	memset(mix, 0, sizeof(mix));
@@ -183,4 +226,5 @@ void nathanSetChannelVolume(int _channelNumber, float _volume){
 	mix[1] = _volume;
 	ndspChnSetMix(_channelNumber, mix);
 }
+
 #endif

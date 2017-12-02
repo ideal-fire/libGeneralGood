@@ -32,10 +32,9 @@
 	#if SOUNDPLAYER == SND_3DS
 		#include "3dsSound.h"
 		#define CROSSMUSIC NathanMusic
-		#define CROSSSFX int
+		#define CROSSSFX NathanMusic
 		#define CROSSPLAYHANDLE unsigned char
 	#endif
-
 	void initAudio(){
 		#if SOUNDPLAYER == SND_SDL
 			SDL_Init( SDL_INIT_AUDIO );
@@ -51,7 +50,7 @@
 		#elif SOUNDPLAYER == SND_3DS
 			nathanInit3dsSound();
 			int i;
-			for (i=0;i<10;i++){
+			for (i=0;i<=20;i++){
 				nathanInit3dsChannel(i);
 			}
 		#endif
@@ -66,24 +65,6 @@
 			return 128;
 		#elif SOUNDPLAYER == SND_NONE
 			return 0;
-		#endif
-	}
-	void setSFXVolumeBefore(CROSSSFX* tochange, int toval){
-		#if SOUNDPLAYER == SND_SDL
-			Mix_VolumeChunk(tochange,toval);
-		#elif SOUNDPLAYER == SND_SOLOUD
-			Wav_setVolume(tochange,(float)((float)toval/(float)128));
-		#elif SOUNDPLAYER == SND_3DS
-			// TODO
-		#endif
-	}
-	void setSFXVolume(CROSSPLAYHANDLE tochange, int toval){
-		#if SOUNDPLAYER == SND_SDL
-			setSFXVolumeBefore(tochange,toval);
-		#elif SOUNDPLAYER == SND_SOLOUD
-			Soloud_setVolume(mySoLoudEngine,tochange,(float)((float)toval/(float)128));
-		#elif SOUNDPLAYER == SND_3DS
-			// TODO
 		#endif
 	}
 	void setMusicVolume(CROSSPLAYHANDLE _passedMusic,int vol){
@@ -104,6 +85,24 @@
 			setMusicVolume(_passedMusic->_musicChannel, vol);
 		#endif
 	}
+	void setSFXVolume(CROSSPLAYHANDLE tochange, int toval){
+		#if SOUNDPLAYER == SND_SDL
+			setSFXVolumeBefore(tochange,toval);
+		#elif SOUNDPLAYER == SND_SOLOUD
+			Soloud_setVolume(mySoLoudEngine,tochange,(float)((float)toval/(float)128));
+		#elif SOUNDPLAYER == SND_3DS
+			setMusicVolume(tochange,toval);
+		#endif
+	}
+	void setSFXVolumeBefore(CROSSSFX* tochange, int toval){
+		#if SOUNDPLAYER == SND_SDL
+			Mix_VolumeChunk(tochange,toval);
+		#elif SOUNDPLAYER == SND_SOLOUD
+			Wav_setVolume(tochange,(float)((float)toval/(float)128));
+		#elif SOUNDPLAYER == SND_3DS
+			setMusicVolumeBefore(tochange,toval);
+		#endif
+	}
 	void fadeoutMusic(CROSSPLAYHANDLE _passedHandle,int time){
 		#if SOUNDPLAYER == SND_SDL
 			Mix_FadeOutMusic(time);
@@ -122,8 +121,9 @@
 			Wav_load(_myLoadedSoundEffect,filepath);
 			return _myLoadedSoundEffect;
 		#elif SOUNDPLAYER == SND_3DS
-			// TODO
-			return NULL;
+			NathanMusic* _tempReturn = malloc(sizeof(NathanMusic));
+			nathanLoadSoundEffect(_tempReturn,filepath);
+			return _tempReturn;
 		#elif SOUNDPLAYER == SND_NONE
 			return NULL;
 		#endif
@@ -137,7 +137,7 @@
 			return _myLoadedMusic;
 		#elif SOUNDPLAYER == SND_3DS
 			NathanMusic* _tempReturn = malloc(sizeof(NathanMusic));
-			nathanLoadMusic(_tempReturn,filepath,0,1);
+			nathanLoadMusic(_tempReturn,filepath,1);
 			return _tempReturn;
 		#elif SOUNDPLAYER == SND_NONE
 			return NULL;
@@ -176,11 +176,10 @@
 		#elif SOUNDPLAYER == SND_SOLOUD
 			Wav_stop(toStop);
 		#elif SOUNDPLAYER == SND_3DS
-			// TODO
+			ndspChnWaveBufClear(toStop->_musicChannel);
 		#endif
 	}
-
-	CROSSPLAYHANDLE playSound(CROSSSFX* toPlay, int timesToPlay){
+	CROSSPLAYHANDLE playSound(CROSSSFX* toPlay, int timesToPlay, unsigned char _passedChannel){
 		#if SOUNDPLAYER == SND_SDL
 			Mix_PlayChannel( -1, toPlay, timesToPlay-1 );
 			return toPlay;
@@ -190,13 +189,13 @@
 			}
 			return Soloud_play(mySoLoudEngine,toPlay);
 		#elif SOUNDPLAYER == SND_3DS
-			// TODO
-			return 0;
+			nathanPlaySound(toPlay, _passedChannel);
+			return toPlay->_musicChannel;
 		#elif SOUNDPLAYER == SND_NONE
 			return 0;
 		#endif
 	}
-	CROSSPLAYHANDLE playMusic(CROSSMUSIC* toPlay){
+	CROSSPLAYHANDLE playMusic(CROSSMUSIC* toPlay, unsigned char _passedChannel){
 		#if SOUNDPLAYER == SND_SDL
 			Mix_PlayMusic(toPlay,-1);
 			return toPlay;
@@ -204,7 +203,7 @@
 			WavStream_setLooping(toPlay,1);
 			return Soloud_play(mySoLoudEngine,toPlay);
 		#elif SOUNDPLAYER == SND_3DS
-			nathanPlayMusic(toPlay);
+			nathanPlayMusic(toPlay,_passedChannel);
 			return toPlay->_musicChannel;
 		#elif SOUNDPLAYER == SND_NONE
 			return 1;
@@ -216,7 +215,8 @@
 		#elif SOUNDPLAYER == SND_SOLOUD
 			Wav_destroy(toFree);
 		#elif SOUNDPLAYER == SND_3DS
-			// TODO
+			nathanFreeSound(toFree);
+			free(toFree);
 		#endif
 	}
 	void freeMusic(CROSSMUSIC* toFree){
