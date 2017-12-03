@@ -189,6 +189,7 @@
 			}
 			return Soloud_play(mySoLoudEngine,toPlay);
 		#elif SOUNDPLAYER == SND_3DS
+			ndspChnWaveBufClear(_passedChannel);
 			nathanPlaySound(toPlay, _passedChannel);
 			return toPlay->_musicChannel;
 		#elif SOUNDPLAYER == SND_NONE

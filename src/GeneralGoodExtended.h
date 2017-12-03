@@ -332,8 +332,10 @@
 				strcat(*_dataDirPointer,"/");
 			}
 		#elif PLATFORM == PLAT_3DS
-			*_dataDirPointer = malloc(2);
-			strcpy(*_dataDirPointer,"/");
+			*_dataDirPointer = malloc(strlen("/3ds/data/")+strlen(VITAAPPID)+2);
+			strcpy(*_dataDirPointer,"/3ds/data/");
+			strcat(*_dataDirPointer,VITAAPPID);
+			strcat(*_dataDirPointer,"/");
 		#endif
 	}
 
@@ -341,31 +343,20 @@
 		if (DATAFOLDER==NULL){
 			generateDefaultDataDirectory(&DATAFOLDER,USEUMA0);
 		}
-		#if SUBPLATFORM == SUB_ANDROID
-			if (type==TYPE_DATA){
-				strcpy((char*)_buffer,DATAFOLDER);
-			}else if (type==TYPE_EMBEDDED){
+		if (type==TYPE_DATA){
+			strcpy((char*)_buffer,DATAFOLDER);
+		}else{
+			#if SUBPLATFORM == SUB_ANDROID
 				strcpy((char*)_buffer,"");
-			}
-			strcat((char*)_buffer,filename);
-		#elif PLATFORM == PLAT_COMPUTER
-			if (type==TYPE_DATA){
-				strcpy((char*)_buffer,DATAFOLDER);
-			}else if (type==TYPE_EMBEDDED){
+			#elif PLATFORM == PLAT_COMPUTER
 				strcpy((char*)_buffer,"./");
-			}
-			strcat((char*)_buffer,filename);
-		#elif PLATFORM == PLAT_VITA
-			if (type==TYPE_DATA){
-				strcpy((char*)_buffer,DATAFOLDER);
-			}else if (type==TYPE_EMBEDDED){
+			#elif PLATFORM == PLAT_VITA
 				strcpy((char*)_buffer,"app0:");
-			}
-			strcat((char*)_buffer,filename);
-		#elif PLATFORM == PLAT_3DS
-			strcpy((char*)_buffer,"/");
-			strcat((char*)_buffer,filename);
-		#endif
+			#elif PLATFORM == PLAT_3DS
+				strcpy((char*)_buffer,DATAFOLDER); // No romfs for 3ds yet.
+			#endif
+		}
+		strcat((char*)_buffer,filename);
 	}
 	void makeDataDirectory(){
 		char tempPathFixBuffer[256];

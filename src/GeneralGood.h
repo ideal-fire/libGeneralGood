@@ -207,8 +207,14 @@
 		#elif PLATFORM == PLAT_VITA
 			return (sceIoDopen(filepath));
 		#elif PLATFORM == PLAT_3DS
+			// Should not end in slash
+			char _tempFixedFilepath[strlen(filepath)+1];
+			strcpy(_tempFixedFilepath,filepath);
+			if (_tempFixedFilepath[strlen(filepath)-1]==47){
+				_tempFixedFilepath[strlen(filepath)-1]=0;
+			}
 			openSDArchiveIfHaveNot();
-			FS_Path _stupidPath=fsMakePath(PATH_ASCII, filepath);
+			FS_Path _stupidPath=fsMakePath(PATH_ASCII, _tempFixedFilepath);
 			CROSSDIR _openedDirectory;
 			if (FSUSER_OpenDirectory(&_openedDirectory, _sdArchive, _stupidPath)!=0){
 				return 0;

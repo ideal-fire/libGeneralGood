@@ -52,15 +52,13 @@
 
 	void loadFont(char* filename){
 		#if TEXTRENDERER == TEXT_DEBUG
-			char _fixedPathBuffer[256];
-			fixPath(filename,_fixedPathBuffer,TYPE_EMBEDDED);
 			// Load bitmap font image
-			char _specificFontImageBuffer[strlen(_fixedPathBuffer)+5+1]; // filepath + extention + null
-			sprintf(_specificFontImageBuffer, "%s%s", _fixedPathBuffer, ".png");
+			char _specificFontImageBuffer[strlen(filename)+5+1]; // filepath + extention + null
+			sprintf(_specificFontImageBuffer, "%s%s", filename, ".png");
 			fontImage=loadPNG(_specificFontImageBuffer);
 			
 			// Load font info
-			sprintf(_specificFontImageBuffer, "%s%s", _fixedPathBuffer, ".info");
+			sprintf(_specificFontImageBuffer, "%s%s", filename, ".info");
 			FILE* fp = fopen(_specificFontImageBuffer,"r");
 			int i;
 			for (i=0;i<95;i++){

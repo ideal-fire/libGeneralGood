@@ -25,7 +25,7 @@ typedef struct{
 	char* _musicMusicBuffer[10]; // Only 2 used normally. Up 10 for single buffer sound effects
 	ndspWaveBuf _musicWaveBuffer[10];
 	int _musicOggCurrentSection; // Used by libvorbis
-	char _musicIsTwoBuffers;
+	char _musicIsTwoBuffers; // For sound effects, this is the number of buffers.
 	unsigned char _musicChannel;
 	unsigned char _musicShoudLoop;
 	char _musicIsDone;
@@ -42,13 +42,15 @@ signed char nathanUpdateAudioBuffer(OggVorbis_File* _passedOggFile, char* _passe
 		// Read from my OGG file, at the correct offset in my buffer, I can read 4096 bytes at most, big endian, 16-bit samples, and signed samples
 		long ret=ov_read(_passedOggFile,&(_passedAudioBuffer[_soundBufferWriteOffset]),SINGLEOGGREAD,0,2,1,_passedCurrentSection);
 		if (ret == 0) {
-			printf("eof reached: %lld, %d\n",_soundBufferWriteOffset,_passedShouldLoop);
+			//printf("eof reached: %lld, %d\n",_soundBufferWriteOffset,_passedShouldLoop);
 			// EOF
-			if (_soundBufferWriteOffset==0){
-				if (_passedShouldLoop==1){
+			if (_passedShouldLoop==1){
+				if (_soundBufferWriteOffset==0){
 					ov_raw_seek(_passedOggFile,0);
 					_soundBufferWriteOffset=0;
 					continue;
+				}else{ // Just return what little I have
+					break;
 				}
 			}
 			_returnCode=1;
@@ -226,5 +228,4 @@ void nathanSetChannelVolume(int _channelNumber, float _volume){
 	mix[1] = _volume;
 	ndspChnSetMix(_channelNumber, mix);
 }
-
 #endif
