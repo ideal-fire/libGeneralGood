@@ -35,7 +35,7 @@
 		#define CROSSSFX NathanMusic
 		#define CROSSPLAYHANDLE unsigned char
 	#endif
-	void initAudio(){
+	char initAudio(){
 		#if SOUNDPLAYER == SND_SDL
 			SDL_Init( SDL_INIT_AUDIO );
 			Mix_Init(MIX_INIT_OGG);
@@ -44,15 +44,20 @@
 			#else
 				Mix_OpenAudio( 22050, MIX_DEFAULT_FORMAT, 2, 2048 );
 			#endif
+			return 1;
 		#elif SOUNDPLAYER == SND_SOLOUD
 			mySoLoudEngine = Soloud_create();
 			Soloud_init(mySoLoudEngine);
+			return 1;
 		#elif SOUNDPLAYER == SND_3DS
-			nathanInit3dsSound();
+			if (nathanInit3dsSound()==0){
+				return 0;
+			}
 			int i;
 			for (i=0;i<=20;i++){
 				nathanInit3dsChannel(i);
 			}
+			return 1;
 		#endif
 	}
 	int getMusicVolume(CROSSPLAYHANDLE _passedMusicHandle){

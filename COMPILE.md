@@ -6,7 +6,7 @@ buildlinux is for Linux
 
 `make -f makefile_name_here`
 
-To compile with sound support for 3ds, everything must be compiled with -mfloat-abi=softfp. If not, libogg breaks. Find compiled 3ds library in 3dsBuild folder.
+To compile with sound support for 3ds, everything must be compiled with -mfloat-abi=softfp. If not, libogg breaks. Find compiled 3ds library in 3dsBuild folder. If you're building with sound support on the 3ds, you need dr_wav.h in the src folder. Find a copy [here](https://raw.githubusercontent.com/mackron/dr_libs/master/dr_wav.h).
 
 Sometimes I break support for some platforms and just forget because I don't use them. Sorry.
 

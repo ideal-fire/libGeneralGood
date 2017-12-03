@@ -1,7 +1,6 @@
 // SNDPLAYER == SND_3DS
 #ifndef TREEDEESHSOUND
 #define TREEDEESHSOUND
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,42 +11,46 @@
 #include <vorbis/codec.h>
 #include <vorbis/vorbisfile.h>
 
-#define BYTESPERSAMPLE 2
+#define DR_WAV_IMPLEMENTATION
+#include "dr_wav.h"
 
-// Total samples in the OGG file
-long storedTotalSamples;
+#define BYTESPERSAMPLE 2
 
 #define MAXBUFFERSIZE 2000000
 #define SINGLEOGGREAD 4096
 
+#define MUSICTYPE_NONE 0
+#define MUSICTYPE_OGG 1
+#define MUSICTYPE_WAV 2
+
 typedef struct{
-	OggVorbis_File _musicOggFile;
+	void* _musicMainStruct; // Made with malloc, remember to free.
 	char* _musicMusicBuffer[10]; // Only 2 used normally. Up 10 for single buffer sound effects
 	ndspWaveBuf _musicWaveBuffer[10];
-	int _musicOggCurrentSection; // Used by libvorbis
 	char _musicIsTwoBuffers; // For sound effects, this is the number of buffers.
 	unsigned char _musicChannel;
 	unsigned char _musicShoudLoop;
+	unsigned char _musicType;
 	char _musicIsDone;
 }NathanMusic;
+
 
 // Returns -1 if error
 // Returns 1 if EOF
 // Returns 0 otherwise
-signed char nathanUpdateAudioBuffer(OggVorbis_File* _passedOggFile, char* _passedAudioBuffer, ndspWaveBuf* _passedWaveBuffer, int* _passedCurrentSection, char _passedShouldLoop){
-	// Load the actual OGG sound data
-	u64 _soundBufferWriteOffset=0;
+signed char decoreMoreOGG(OggVorbis_File* _passedOggFile, char* _passedAudioBuffer, char _passedShouldLoop, u64* _soundBufferWriteOffset){
+	int _passedCurrentSection=0;
+	*_soundBufferWriteOffset=0;
 	signed char _returnCode=0;
+	// Load the actual OGG sound data
 	while(1){
 		// Read from my OGG file, at the correct offset in my buffer, I can read 4096 bytes at most, big endian, 16-bit samples, and signed samples
-		long ret=ov_read(_passedOggFile,&(_passedAudioBuffer[_soundBufferWriteOffset]),SINGLEOGGREAD,0,2,1,_passedCurrentSection);
-		if (ret == 0) {
-			//printf("eof reached: %lld, %d\n",_soundBufferWriteOffset,_passedShouldLoop);
-			// EOF
+		long ret=ov_read(_passedOggFile,&(_passedAudioBuffer[*_soundBufferWriteOffset]),SINGLEOGGREAD,0,2,1,&_passedCurrentSection);
+		if (ret == 0) { // EOF
 			if (_passedShouldLoop==1){
-				if (_soundBufferWriteOffset==0){
+				if (*_soundBufferWriteOffset==0){
 					ov_raw_seek(_passedOggFile,0);
-					_soundBufferWriteOffset=0;
+					*_soundBufferWriteOffset=0;
 					continue;
 				}else{ // Just return what little I have
 					break;
@@ -68,11 +71,56 @@ signed char nathanUpdateAudioBuffer(OggVorbis_File* _passedOggFile, char* _passe
 			break;
 		} else {
 			// Move pointer in buffer
-			_soundBufferWriteOffset+=ret;
-			if (_soundBufferWriteOffset+SINGLEOGGREAD>MAXBUFFERSIZE){
+			*_soundBufferWriteOffset+=ret;
+			if (*_soundBufferWriteOffset+SINGLEOGGREAD>MAXBUFFERSIZE){
 				break;
 			}
 		}
+	}
+	return _returnCode;
+}
+signed char decoreMoreWAV(drwav* _passedWavFile, char* _passedAudioBuffer, char _passedShouldLoop, u64* _soundBufferWriteOffset){
+	*_soundBufferWriteOffset=0;
+	signed char _returnCode=0;
+	while(1){
+		long ret = drwav_read_raw(_passedWavFile, SINGLEOGGREAD, &(_passedAudioBuffer[*_soundBufferWriteOffset]));
+		if (ret == 0) {
+			// EOF
+			if (_passedShouldLoop==1){
+				if (*_soundBufferWriteOffset==0){
+					drwav_seek_to_sample(_passedWavFile,0);
+					continue;
+				}else{ // Just return what little I have
+					break;
+				}
+			}
+			_returnCode=1;
+			break;
+		} else if (ret < 0) {
+			printf("Error: %ld\n",ret);
+			_returnCode=-1;
+			break;
+		} else {
+			// Move pointer in buffer
+			*_soundBufferWriteOffset+=ret;
+			if (*_soundBufferWriteOffset+SINGLEOGGREAD>MAXBUFFERSIZE){
+				break;
+			}
+		}
+	}
+	return _returnCode;
+}
+
+// Returns -1 if error
+// Returns 1 if EOF
+// Returns 0 otherwise
+signed char nathanUpdateAudioBuffer(void* _passedMusicFile, unsigned char _passedMusicType, char* _passedAudioBuffer, ndspWaveBuf* _passedWaveBuffer, char _passedShouldLoop){
+	u64 _returnedReadBytes;
+	signed char _returnCode=0;
+	if (_passedMusicType == MUSICTYPE_OGG){
+		_returnCode = decoreMoreOGG(_passedMusicFile,_passedAudioBuffer,_passedShouldLoop,&_returnedReadBytes);
+	}else if (_passedMusicType == MUSICTYPE_WAV){
+		_returnCode = decoreMoreWAV(_passedMusicFile,_passedAudioBuffer,_passedShouldLoop,&_returnedReadBytes);
 	}
 	// Reset wave buffer
 	memset(_passedWaveBuffer,0,sizeof(ndspWaveBuf));
@@ -81,35 +129,69 @@ signed char nathanUpdateAudioBuffer(OggVorbis_File* _passedOggFile, char* _passe
 	// This points to the actual audio data
 	_passedWaveBuffer->data_vaddr = _passedAudioBuffer;
 	// Total number of samples (PCM16=halfwords)
-	_passedWaveBuffer->nsamples = (_soundBufferWriteOffset/BYTESPERSAMPLE)/2; // I guess we divide the number by 2 because it's stereo
+	_passedWaveBuffer->nsamples = (_returnedReadBytes/BYTESPERSAMPLE)/2; // I guess we divide the number by 2 because it's stereo
 	return _returnCode;
 }
 signed char nathannathanUpdateAudioBufferNathanMusic(NathanMusic* _passedMusic, int _passedBufferNumber){
-	return nathanUpdateAudioBuffer(&(_passedMusic->_musicOggFile),_passedMusic->_musicMusicBuffer[_passedBufferNumber], &(_passedMusic->_musicWaveBuffer[_passedBufferNumber]),&(_passedMusic->_musicOggCurrentSection),_passedMusic->_musicShoudLoop);
+	return nathanUpdateAudioBuffer((_passedMusic->_musicMainStruct),_passedMusic->_musicType,_passedMusic->_musicMusicBuffer[_passedBufferNumber], &(_passedMusic->_musicWaveBuffer[_passedBufferNumber]),_passedMusic->_musicShoudLoop);
 }
 int nathanGetMusicNumberOfChannels(NathanMusic* _passedMusic){
-	vorbis_info* vi=ov_info(&(_passedMusic->_musicOggFile),-1);
-	return vi->channels;
+	if (_passedMusic->_musicType==MUSICTYPE_OGG){
+		vorbis_info* vi=ov_info((_passedMusic->_musicMainStruct),-1);
+		return vi->channels;
+	}else if (_passedMusic->_musicType==MUSICTYPE_WAV){
+		return ((drwav*)(_passedMusic->_musicMainStruct))->channels;
+	}else{
+		return 0;
+	}
 }
 long nathanGetMusicRate(NathanMusic* _passedMusic){
-	vorbis_info* vi=ov_info(&(_passedMusic->_musicOggFile),-1);
-	return vi->rate;
+	if (_passedMusic->_musicType==MUSICTYPE_OGG){
+		vorbis_info* vi=ov_info((_passedMusic->_musicMainStruct),-1);
+		return vi->rate;
+	}else if (_passedMusic->_musicType==MUSICTYPE_WAV){
+		return ((drwav*)(_passedMusic->_musicMainStruct))->sampleRate;
+	}else{
+		return 0;
+	}
+}
+unsigned char getMusicType(char* _filename){
+	if (strcmp(&(_filename[strlen(_filename)-3]),"ogg")==0){
+		return MUSICTYPE_OGG;
+	}else if (strcmp(&(_filename[strlen(_filename)-3]),"wav")==0){
+		return MUSICTYPE_WAV;
+	}else{
+		return MUSICTYPE_NONE;
+	}
+}
+void _nathanOpenSpecificMusic(NathanMusic* _passedMusic, char* _filename){
+	if (_passedMusic->_musicType == MUSICTYPE_OGG){
+		FILE* fp = fopen(_filename,"r");
+		if(ov_open(fp, (_passedMusic->_musicMainStruct), NULL, 0) != 0){
+			fclose(fp);
+			printf("open not worked!\n");
+			return;
+		}
+	}else if (_passedMusic->_musicType==MUSICTYPE_WAV){
+		if (!drwav_init_file(_passedMusic->_musicMainStruct, _filename)) {
+			printf("Error open file!\n");
+			return;
+		}
+	}
 }
 void nathanLoadMusic(NathanMusic* _passedMusic, char* _filename, unsigned char _passedShouldLoop){
 	_passedMusic->_musicShoudLoop=_passedShouldLoop;
 	_passedMusic->_musicIsTwoBuffers=0;
 	_passedMusic->_musicIsDone=0;
-
-	// Load two sections of music first
-	// Load OGG file and some stupid info from it.
-	// By stupid info, I mean like the vendor and stuff
-	// This is also where we get the total number of samples
-	FILE* fp = fopen(_filename,"r");
-	if(ov_open(fp, &(_passedMusic->_musicOggFile), NULL, 0) != 0){
-		fclose(fp);
-		printf("open not worked!\n");
+	_passedMusic->_musicType = getMusicType(_filename);
+	if (_passedMusic->_musicType==MUSICTYPE_OGG){
+		_passedMusic->_musicMainStruct = malloc(sizeof(OggVorbis_File));
+	}else if (_passedMusic->_musicType==MUSICTYPE_WAV){
+		_passedMusic->_musicMainStruct = malloc(sizeof(drwav));
+	}else{
 		return;
 	}
+	_nathanOpenSpecificMusic(_passedMusic,_filename);
 	// Only programmed to work with stereo at the moment
 	if (nathanGetMusicNumberOfChannels(_passedMusic)!=2){
 		return;
@@ -132,12 +214,16 @@ void nathanLoadSoundEffect(NathanMusic* _passedMusic, char* _filename){
 	_passedMusic->_musicShoudLoop=0;
 	_passedMusic->_musicIsTwoBuffers=0;
 	_passedMusic->_musicIsDone=0;
-	FILE* fp = fopen(_filename,"r");
-	if(ov_open(fp, &(_passedMusic->_musicOggFile), NULL, 0) != 0){
-		fclose(fp);
-		printf("open not worked!\n");
+	_passedMusic->_musicType = getMusicType(_filename);
+
+	if (_passedMusic->_musicType==MUSICTYPE_OGG){
+		_passedMusic->_musicMainStruct = malloc(sizeof(OggVorbis_File));
+	}else if (_passedMusic->_musicType==MUSICTYPE_WAV){
+		_passedMusic->_musicMainStruct = malloc(sizeof(drwav));
+	}else{
 		return;
 	}
+	_nathanOpenSpecificMusic(_passedMusic,_filename);
 	if (nathanGetMusicNumberOfChannels(_passedMusic)!=2){
 		return;
 	}
@@ -157,10 +243,13 @@ void nathanQueueMusic3ds(ndspWaveBuf* _musicToPlay, int _channelNumber){
 	// Put in queue
 	ndspChnWaveBufAdd(_channelNumber, _musicToPlay);
 }
-void nathanInit3dsSound(){
+char nathanInit3dsSound(){
 	// Init sound stupidity
-	ndspInit();
+	if (R_SUCCEEDED(ndspInit())!=1){
+		return 0;
+	}
 	ndspSetOutputMode(NDSP_OUTPUT_STEREO);
+	return 1;
 }
 void nathanInit3dsChannel(int _channelNumber){
 	ndspChnWaveBufClear(_channelNumber);
@@ -205,13 +294,21 @@ void nathanUpdateMusicIfNeeded(NathanMusic* _passedMusic){
 		}
 	}
 }
+void _nathanFreeSpecificStruct(NathanMusic* _passedMusic){
+	if (_passedMusic->_musicType == MUSICTYPE_OGG){
+		ov_clear((_passedMusic->_musicMainStruct));
+	}else if (_passedMusic->_musicType == MUSICTYPE_WAV){
+		drwav_close(_passedMusic->_musicMainStruct);
+	}
+}
 void nathanFreeMusic(NathanMusic* _passedMusic){
 	ndspChnWaveBufClear(_passedMusic->_musicChannel);
 	linearFree(_passedMusic->_musicMusicBuffer[0]);
 	if (_passedMusic->_musicIsTwoBuffers==1){
 		linearFree(_passedMusic->_musicMusicBuffer[1]);
 	}
-	ov_clear(&(_passedMusic->_musicOggFile));
+	_nathanFreeSpecificStruct(_passedMusic);
+	free(_passedMusic->_musicMainStruct);
 }
 void nathanFreeSound(NathanMusic* _passedMusic){
 	ndspChnWaveBufClear(_passedMusic->_musicChannel);
@@ -219,7 +316,8 @@ void nathanFreeSound(NathanMusic* _passedMusic){
 	for (i=0;i<_passedMusic->_musicIsTwoBuffers;i++){
 		linearFree(_passedMusic->_musicMusicBuffer[i]);
 	}
-	ov_clear(&(_passedMusic->_musicOggFile));
+	_nathanFreeSpecificStruct(_passedMusic);
+	free(_passedMusic->_musicMainStruct);
 }
 void nathanSetChannelVolume(int _channelNumber, float _volume){
 	float mix[12];
