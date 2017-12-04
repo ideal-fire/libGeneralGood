@@ -35,6 +35,7 @@
 		#define CROSSSFX NathanMusic
 		#define CROSSPLAYHANDLE unsigned char
 	#endif
+
 	char initAudio(){
 		#if SOUNDPLAYER == SND_SDL
 			SDL_Init( SDL_INIT_AUDIO );
@@ -115,7 +116,21 @@
 			Soloud_fadeVolume(mySoLoudEngine,_passedHandle,0,(double)((double)time/(double)1000));
 			Soloud_scheduleStop(mySoLoudEngine,_passedHandle,(double)((double)time/(double)1000));
 		#elif SOUNDPLAYER == SND_3DS
-			// TODO
+			float _perTenthSecond=(float)((float)1/((double)time/(double)100));
+			if (_perTenthSecond==0){
+				_perTenthSecond=.00001;
+			}
+			float _currentFadeoutVolume=1;
+			while (_currentFadeoutVolume>0){
+				if (_currentFadeoutVolume<_perTenthSecond){
+					_currentFadeoutVolume=0;
+				}else{
+					_currentFadeoutVolume-=_perTenthSecond;
+				}
+				nathanSetChannelVolume(_passedHandle,_currentFadeoutVolume);
+				svcSleepThread(100000000); // Wait for one tenth of a second
+			}
+			ndspChnWaveBufClear(_passedHandle);
 		#endif
 	}
 	CROSSSFX* loadSound(char* filepath){
