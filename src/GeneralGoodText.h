@@ -13,10 +13,6 @@
 
 	CrossFont* fontImage=NULL;
 
-	char bitmapFontWidth=14;
-	char bitmapFontHeight=15;
-	short bitmapFontLettersPerImage=73;
-
 	#if TEXTRENDERER == TEXT_DEBUG
 		float fontSize = 1;
 	#endif
@@ -99,7 +95,9 @@
 			int _currentWidth=0;
 			int i;
 			for (i=0;i<strlen(message);i++){
-				_currentWidth+=(bitmapFontLetterInfo[message[i]-32].imageDisplayWidth)*scale;
+				if (message[i]-32<95){
+					_currentWidth+=(bitmapFontLetterInfo[message[i]-32].imageDisplayWidth)*scale;
+				}
 			}
 			return _currentWidth;
 		#elif TEXTRENDERER == TEXT_VITA2D
@@ -116,8 +114,10 @@
 			int i=0;
 			int _currentDrawTextX=x;
 			for (i = 0; i < strlen(text); i++){
-				drawLetterColor(text[i],_currentDrawTextX,y,size,r,g,b);
-				_currentDrawTextX+=bitmapFontLetterInfo[text[i]-32].imageDisplayWidth;
+				if (text[i]-32<95){
+					drawLetterColor(text[i],_currentDrawTextX,y,size,r,g,b);
+					_currentDrawTextX+=bitmapFontLetterInfo[text[i]-32].imageDisplayWidth;
+				}
 			}
 		#elif TEXTRENDERER == TEXT_FONTCACHE
 			EASYFIXCOORDS(&x,&y);
@@ -134,11 +134,14 @@
 			EASYFIXCOORDS(&x,&y);
 			vita2d_font_draw_text(fontImage,x,y+textHeight(size), RGBA8(255,255,255,255),floor(size),text);
 		#elif TEXTRENDERER == TEXT_DEBUG
+			// TODO - Make this just call goodDrawTextColored
 			int i=0;
 			int _currentDrawTextX=x;
 			for (i = 0; i < strlen(text); i++){
-				drawLetter(text[i],_currentDrawTextX,y,size);
-				_currentDrawTextX+=bitmapFontLetterInfo[text[i]-32].imageDisplayWidth;
+				if (text[i]-32<95){
+					drawLetter(text[i],_currentDrawTextX,y,size);
+					_currentDrawTextX+=bitmapFontLetterInfo[text[i]-32].imageDisplayWidth;
+				}
 			}
 		#elif TEXTRENDERER == TEXT_FONTCACHE
 			goodDrawTextColored(x,y,text,size,255,255,255);

@@ -53,17 +53,20 @@
 	typedef int64_t		s64;
 
 	#if PLATFORM == PLAT_3DS
-		void openSDArchiveIfHaveNot(){
-			if (_sdArchive==0){
-				FSUSER_OpenArchive(&_sdArchive, ARCHIVE_SDMC, fsMakePath(PATH_EMPTY, ""));
-			}
-		}
 		void utf2ascii(char* dst, u16* src){
 			if(!src || !dst)return;
 			while(*src)*(dst++)=(*(src++))&0xFF;
 			*dst=0x00;
 		}
 	#endif
+
+	void generalGoodInit(){
+		#if PLATFORM == PLAT_3DS
+			FSUSER_OpenArchive(&_sdArchive, ARCHIVE_SDMC, fsMakePath(PATH_EMPTY, ""));
+		#elif PLATFORM == PLAT_VITA
+		#else
+		#endif
+	}
 
 	// Waits for a number of miliseconds.
 	void wait(int miliseconds){
@@ -151,7 +154,6 @@
 				mkdir(path);
 			#endif
 		#elif PLATFORM == PLAT_3DS
-			openSDArchiveIfHaveNot();
 			FSUSER_CreateDirectory(_sdArchive, fsMakePath(PATH_ASCII, path), 0);
 		#endif
 	}
@@ -213,7 +215,6 @@
 			if (_tempFixedFilepath[strlen(filepath)-1]==47){
 				_tempFixedFilepath[strlen(filepath)-1]=0;
 			}
-			openSDArchiveIfHaveNot();
 			FS_Path _stupidPath=fsMakePath(PATH_ASCII, _tempFixedFilepath);
 			CROSSDIR _openedDirectory;
 			if (FSUSER_OpenDirectory(&_openedDirectory, _sdArchive, _stupidPath)!=0){
@@ -289,7 +290,6 @@
 	== CROSS PLATFORM FILE WRITING AND READING
 	==========================================================
 	*/
-
 	#if RENDERER == REND_SDL
 		#define CROSSFILE SDL_RWops
 		#define CROSSFILE_START RW_SEEK_SET

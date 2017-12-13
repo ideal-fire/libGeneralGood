@@ -77,7 +77,7 @@
 		#if SOUNDPLAYER == SND_SDL
 			Mix_VolumeMusic(vol);
 		#elif SOUNDPLAYER == SND_SOLOUD
-			setSFXVolume(_passedMusic,vol);
+			Soloud_setVolume(mySoLoudEngine,_passedMusic,(float)((float)vol/(float)128));
 		#elif SOUNDPLAYER == SND_3DS
 			nathanSetChannelVolume(_passedMusic,(float)(((double)vol)/128));
 		#endif
@@ -91,15 +91,6 @@
 			setMusicVolume(_passedMusic->_musicChannel, vol);
 		#endif
 	}
-	void setSFXVolume(CROSSPLAYHANDLE tochange, int toval){
-		#if SOUNDPLAYER == SND_SDL
-			setSFXVolumeBefore(tochange,toval);
-		#elif SOUNDPLAYER == SND_SOLOUD
-			Soloud_setVolume(mySoLoudEngine,tochange,(float)((float)toval/(float)128));
-		#elif SOUNDPLAYER == SND_3DS
-			setMusicVolume(tochange,toval);
-		#endif
-	}
 	void setSFXVolumeBefore(CROSSSFX* tochange, int toval){
 		#if SOUNDPLAYER == SND_SDL
 			Mix_VolumeChunk(tochange,toval);
@@ -107,6 +98,15 @@
 			Wav_setVolume(tochange,(float)((float)toval/(float)128));
 		#elif SOUNDPLAYER == SND_3DS
 			setMusicVolumeBefore(tochange,toval);
+		#endif
+	}
+	void setSFXVolume(CROSSPLAYHANDLE tochange, int toval){
+		#if SOUNDPLAYER == SND_SDL
+			setSFXVolumeBefore(tochange,toval);
+		#elif SOUNDPLAYER == SND_SOLOUD
+			setMusicVolume(tochange,toval);
+		#elif SOUNDPLAYER == SND_3DS
+			setMusicVolume(tochange,toval);
 		#endif
 	}
 	void fadeoutMusic(CROSSPLAYHANDLE _passedHandle,int time){

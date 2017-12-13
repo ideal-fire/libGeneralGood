@@ -345,7 +345,7 @@
 		}
 		if (type==TYPE_DATA){
 			strcpy((char*)_buffer,DATAFOLDER);
-		}else{
+		}else if (type==TYPE_EMBEDDED){
 			#if SUBPLATFORM == SUB_ANDROID
 				strcpy((char*)_buffer,"");
 			#elif PLATFORM == PLAT_COMPUTER
@@ -353,8 +353,11 @@
 			#elif PLATFORM == PLAT_VITA
 				strcpy((char*)_buffer,"app0:");
 			#elif PLATFORM == PLAT_3DS
+				//strcpy((char*)_buffer,"romfs:/");
 				strcpy((char*)_buffer,DATAFOLDER); // No romfs for 3ds yet.
 			#endif
+		}else{
+			printf("Unknown type.\n");
 		}
 		strcat((char*)_buffer,filename);
 	}

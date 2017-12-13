@@ -34,7 +34,6 @@ typedef struct{
 	char _musicIsDone;
 }NathanMusic;
 
-
 // Returns -1 if error
 // Returns 1 if EOF
 // Returns 0 otherwise
@@ -110,31 +109,6 @@ signed char decoreMoreWAV(drwav* _passedWavFile, char* _passedAudioBuffer, char 
 	}
 	return _returnCode;
 }
-
-// Returns -1 if error
-// Returns 1 if EOF
-// Returns 0 otherwise
-signed char nathanUpdateAudioBuffer(void* _passedMusicFile, unsigned char _passedMusicType, char* _passedAudioBuffer, ndspWaveBuf* _passedWaveBuffer, char _passedShouldLoop){
-	u64 _returnedReadBytes;
-	signed char _returnCode=0;
-	if (_passedMusicType == MUSICTYPE_OGG){
-		_returnCode = decoreMoreOGG(_passedMusicFile,_passedAudioBuffer,_passedShouldLoop,&_returnedReadBytes);
-	}else if (_passedMusicType == MUSICTYPE_WAV){
-		_returnCode = decoreMoreWAV(_passedMusicFile,_passedAudioBuffer,_passedShouldLoop,&_returnedReadBytes);
-	}
-	// Reset wave buffer
-	memset(_passedWaveBuffer,0,sizeof(ndspWaveBuf));
-	// I don't know why I have to do this. I just copied the example
-	DSP_FlushDataCache(_passedAudioBuffer,MAXBUFFERSIZE);
-	// This points to the actual audio data
-	_passedWaveBuffer->data_vaddr = _passedAudioBuffer;
-	// Total number of samples (PCM16=halfwords)
-	_passedWaveBuffer->nsamples = (_returnedReadBytes/BYTESPERSAMPLE)/2; // I guess we divide the number by 2 because it's stereo
-	return _returnCode;
-}
-signed char nathannathanUpdateAudioBufferNathanMusic(NathanMusic* _passedMusic, int _passedBufferNumber){
-	return nathanUpdateAudioBuffer((_passedMusic->_musicMainStruct),_passedMusic->_musicType,_passedMusic->_musicMusicBuffer[_passedBufferNumber], &(_passedMusic->_musicWaveBuffer[_passedBufferNumber]),_passedMusic->_musicShoudLoop);
-}
 int nathanGetMusicNumberOfChannels(NathanMusic* _passedMusic){
 	if (_passedMusic->_musicType==MUSICTYPE_OGG){
 		vorbis_info* vi=ov_info((_passedMusic->_musicMainStruct),-1);
@@ -144,6 +118,31 @@ int nathanGetMusicNumberOfChannels(NathanMusic* _passedMusic){
 	}else{
 		return 0;
 	}
+}
+// Returns -1 if error
+// Returns 1 if EOF
+// Returns 0 otherwise
+signed char nathannathanUpdateAudioBufferNathanMusic(NathanMusic* _passedMusic, int _passedBufferNumber){
+	u64 _returnedReadBytes;
+	signed char _returnCode=0;
+	if (_passedMusic->_musicType == MUSICTYPE_OGG){
+		_returnCode = decoreMoreOGG(_passedMusic->_musicMainStruct,_passedMusic->_musicMusicBuffer[_passedBufferNumber],_passedMusic->_musicShoudLoop,&_returnedReadBytes);
+	}else if (_passedMusic->_musicType == MUSICTYPE_WAV){
+		_returnCode = decoreMoreWAV(_passedMusic->_musicMainStruct,_passedMusic->_musicMusicBuffer[_passedBufferNumber],_passedMusic->_musicShoudLoop,&_returnedReadBytes);
+	}
+	// Reset wave buffer
+	memset(&(_passedMusic->_musicWaveBuffer[_passedBufferNumber]),0,sizeof(ndspWaveBuf));
+	// I don't know why I have to do this. I just copied the example
+	DSP_FlushDataCache(_passedMusic->_musicMusicBuffer[_passedBufferNumber],MAXBUFFERSIZE);
+	// This points to the actual audio data
+	_passedMusic->_musicWaveBuffer[_passedBufferNumber].data_vaddr = _passedMusic->_musicMusicBuffer[_passedBufferNumber];
+	// Total number of samples
+	_passedMusic->_musicWaveBuffer[_passedBufferNumber].nsamples = (_returnedReadBytes/BYTESPERSAMPLE);
+	if (nathanGetMusicNumberOfChannels(_passedMusic)==2){
+		// (PCM16=halfwords)
+		_passedMusic->_musicWaveBuffer[_passedBufferNumber].nsamples/=2; // I guess we divide the number by 2 because it's stereo
+	}
+	return _returnCode;
 }
 long nathanGetMusicRate(NathanMusic* _passedMusic){
 	if (_passedMusic->_musicType==MUSICTYPE_OGG){
@@ -179,8 +178,9 @@ void _nathanOpenSpecificMusic(NathanMusic* _passedMusic, char* _filename){
 		}
 	}
 }
-void nathanLoadMusic(NathanMusic* _passedMusic, char* _filename, unsigned char _passedShouldLoop){
-	_passedMusic->_musicShoudLoop=_passedShouldLoop;
+// Return 1 if problem
+char _nathanInitMusic(NathanMusic* _passedMusic, char* _filename){
+	_passedMusic->_musicShoudLoop=0;
 	_passedMusic->_musicIsTwoBuffers=0;
 	_passedMusic->_musicIsDone=0;
 	_passedMusic->_musicType = getMusicType(_filename);
@@ -189,13 +189,19 @@ void nathanLoadMusic(NathanMusic* _passedMusic, char* _filename, unsigned char _
 	}else if (_passedMusic->_musicType==MUSICTYPE_WAV){
 		_passedMusic->_musicMainStruct = malloc(sizeof(drwav));
 	}else{
-		return;
+		return 1;
 	}
 	_nathanOpenSpecificMusic(_passedMusic,_filename);
-	// Only programmed to work with stereo at the moment
-	if (nathanGetMusicNumberOfChannels(_passedMusic)!=2){
+	if (nathanGetMusicNumberOfChannels(_passedMusic)>2){
+		return 1;
+	}
+	return 0;
+}
+void nathanLoadMusic(NathanMusic* _passedMusic, char* _filename, unsigned char _passedShouldLoop){
+	if (_nathanInitMusic(_passedMusic,_filename)==1){
 		return;
 	}
+	_passedMusic->_musicShoudLoop=_passedShouldLoop;
 	// Where the actual audio data is held
 	// Should be in format NDSP_FORMAT_STEREO_PCM16
 	// The buffer size is, I guess, the total number of samples times the sample byte size
@@ -211,22 +217,10 @@ void nathanLoadMusic(NathanMusic* _passedMusic, char* _filename, unsigned char _
 	}
 }
 void nathanLoadSoundEffect(NathanMusic* _passedMusic, char* _filename){
+	if (_nathanInitMusic(_passedMusic,_filename)==1){
+		return;
+	}
 	_passedMusic->_musicShoudLoop=0;
-	_passedMusic->_musicIsTwoBuffers=0;
-	_passedMusic->_musicIsDone=0;
-	_passedMusic->_musicType = getMusicType(_filename);
-
-	if (_passedMusic->_musicType==MUSICTYPE_OGG){
-		_passedMusic->_musicMainStruct = malloc(sizeof(OggVorbis_File));
-	}else if (_passedMusic->_musicType==MUSICTYPE_WAV){
-		_passedMusic->_musicMainStruct = malloc(sizeof(drwav));
-	}else{
-		return;
-	}
-	_nathanOpenSpecificMusic(_passedMusic,_filename);
-	if (nathanGetMusicNumberOfChannels(_passedMusic)!=2){
-		return;
-	}
 	int i;
 	for (i=0;i<10;i++){
 		_passedMusic->_musicIsTwoBuffers++; // With sound effect, this is number of buffers
@@ -251,6 +245,22 @@ char nathanInit3dsSound(){
 	ndspSetOutputMode(NDSP_OUTPUT_STEREO);
 	return 1;
 }
+void nathanMakeChannelMono(int _channelNumber){
+	ndspChnSetFormat(_channelNumber, NDSP_FORMAT_MONO_PCM16);
+}
+void nathanMakeChannelStereo(int _channelNumber){
+	ndspChnSetFormat(_channelNumber, NDSP_FORMAT_STEREO_PCM16);
+}
+char nathanSetChannelFormat(int _channelNumber, int _numberOfChannels){
+	if (_numberOfChannels==1){
+		nathanMakeChannelMono(_channelNumber);
+	}else if (_numberOfChannels==2){
+		nathanMakeChannelStereo(_channelNumber);
+	}else{
+		return 1;
+	}
+	return 0;
+}
 void nathanInit3dsChannel(int _channelNumber){
 	ndspChnWaveBufClear(_channelNumber);
 	ndspChnSetInterp(_channelNumber, NDSP_INTERP_LINEAR);
@@ -262,19 +272,21 @@ void nathanInit3dsChannel(int _channelNumber){
 	mix[1] = 1.0;
 	ndspChnSetMix(_channelNumber, mix);
 }
-void nathanPlayMusic(NathanMusic* _passedMusic, unsigned char _channelNumber){
+void nathanSetChannelForMusic(int _channelNumber, NathanMusic* _passedMusic){
 	_passedMusic->_musicChannel=_channelNumber;
 	_passedMusic->_musicIsDone=0;
 	ndspChnSetRate(_passedMusic->_musicChannel, nathanGetMusicRate(_passedMusic));
+	nathanSetChannelFormat(_passedMusic->_musicChannel, nathanGetMusicNumberOfChannels(_passedMusic));
+}
+void nathanPlayMusic(NathanMusic* _passedMusic, unsigned char _channelNumber){
+	nathanSetChannelForMusic(_channelNumber,_passedMusic);
 	nathanQueueMusic3ds(&(_passedMusic->_musicWaveBuffer[0]),_passedMusic->_musicChannel);
 	if (_passedMusic->_musicIsTwoBuffers==1){
 		nathanQueueMusic3ds(&(_passedMusic->_musicWaveBuffer[1]),_passedMusic->_musicChannel);
 	}
 }
 void nathanPlaySound(NathanMusic* _passedMusic, unsigned char _channelNumber){
-	_passedMusic->_musicChannel=_channelNumber;
-	_passedMusic->_musicIsDone=0;
-	ndspChnSetRate(_passedMusic->_musicChannel, nathanGetMusicRate(_passedMusic));
+	nathanSetChannelForMusic(_channelNumber,_passedMusic);
 	int i;
 	for (i=0;i<_passedMusic->_musicIsTwoBuffers;i++){
 		nathanQueueMusic3ds(&(_passedMusic->_musicWaveBuffer[i]),_passedMusic->_musicChannel);
