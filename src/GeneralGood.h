@@ -63,6 +63,7 @@
 	void generalGoodInit(){
 		#if PLATFORM == PLAT_3DS
 			FSUSER_OpenArchive(&_sdArchive, ARCHIVE_SDMC, fsMakePath(PATH_EMPTY, ""));
+			romfsInit();
 		#elif PLATFORM == PLAT_VITA
 		#else
 		#endif

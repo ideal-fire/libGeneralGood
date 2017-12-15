@@ -65,6 +65,8 @@
 
 	#if PLATFORM == PLAT_3DS
 		#include <3ds/types.h>
+		signed int cacheIsCiaBuild=-1;
+		char getIsCiaBuild();
 	#endif
 
 	#if PLATFORM != PLAT_VITA
@@ -353,8 +355,14 @@
 			#elif PLATFORM == PLAT_VITA
 				strcpy((char*)_buffer,"app0:");
 			#elif PLATFORM == PLAT_3DS
-				//strcpy((char*)_buffer,"romfs:/");
-				strcpy((char*)_buffer,DATAFOLDER); // No romfs for 3ds yet.
+				if (cacheIsCiaBuild==-1){
+					cacheIsCiaBuild = getIsCiaBuild();
+				}
+				if (cacheIsCiaBuild){
+					strcpy((char*)_buffer,"romfs:/");
+				}else{
+					strcpy((char*)_buffer,DATAFOLDER);
+				}
 			#endif
 		}else{
 			printf("Unknown type.\n");
