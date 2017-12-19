@@ -68,6 +68,13 @@
 		#else
 		#endif
 	}
+	void generalGoodQuit(){
+		#if PLATFORM == PLAT_3DS
+			romfsExit();
+		#elif PLATFORM == PLAT_VITA
+		#elif PLATFORM == PLAT_COMPUTER
+		#endif
+	}
 
 	// Waits for a number of miliseconds.
 	void wait(int miliseconds){

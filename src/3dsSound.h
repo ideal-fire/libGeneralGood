@@ -11,6 +11,8 @@
 #include <vorbis/codec.h>
 #include <vorbis/vorbisfile.h>
 
+// TODO - WAV playing causes problems. Probably a buffer overflow.
+
 #define DR_WAV_IMPLEMENTATION
 #include "dr_wav.h"
 
@@ -71,7 +73,7 @@ signed char decoreMoreOGG(OggVorbis_File* _passedOggFile, char* _passedAudioBuff
 		} else {
 			// Move pointer in buffer
 			*_soundBufferWriteOffset+=ret;
-			if (*_soundBufferWriteOffset+SINGLEOGGREAD>MAXBUFFERSIZE){
+			if (*_soundBufferWriteOffset+SINGLEOGGREAD>=MAXBUFFERSIZE){
 				break;
 			}
 		}
@@ -82,7 +84,7 @@ signed char decoreMoreWAV(drwav* _passedWavFile, char* _passedAudioBuffer, char 
 	*_soundBufferWriteOffset=0;
 	signed char _returnCode=0;
 	while(1){
-		long ret = drwav_read_raw(_passedWavFile, SINGLEOGGREAD, &(_passedAudioBuffer[*_soundBufferWriteOffset]));
+		long ret = drwav_read_s16(_passedWavFile, SINGLEOGGREAD, (short int*)&(_passedAudioBuffer[*_soundBufferWriteOffset]));
 		if (ret == 0) {
 			// EOF
 			if (_passedShouldLoop==1){
@@ -102,7 +104,7 @@ signed char decoreMoreWAV(drwav* _passedWavFile, char* _passedAudioBuffer, char 
 		} else {
 			// Move pointer in buffer
 			*_soundBufferWriteOffset+=ret;
-			if (*_soundBufferWriteOffset+SINGLEOGGREAD>MAXBUFFERSIZE){
+			if (*_soundBufferWriteOffset+SINGLEOGGREAD>=MAXBUFFERSIZE){
 				break;
 			}
 		}
@@ -278,7 +280,13 @@ void nathanSetChannelForMusic(int _channelNumber, NathanMusic* _passedMusic){
 	ndspChnSetRate(_passedMusic->_musicChannel, nathanGetMusicRate(_passedMusic));
 	nathanSetChannelFormat(_passedMusic->_musicChannel, nathanGetMusicNumberOfChannels(_passedMusic));
 }
+void stopChannel(int _channelNumber){
+	ndspChnReset(_channelNumber);
+	ndspChnInitParams(_channelNumber);
+	nathanInit3dsChannel(_channelNumber);
+}
 void nathanPlayMusic(NathanMusic* _passedMusic, unsigned char _channelNumber){
+	stopChannel(_channelNumber);
 	nathanSetChannelForMusic(_channelNumber,_passedMusic);
 	nathanQueueMusic3ds(&(_passedMusic->_musicWaveBuffer[0]),_passedMusic->_musicChannel);
 	if (_passedMusic->_musicIsTwoBuffers==1){
@@ -286,6 +294,7 @@ void nathanPlayMusic(NathanMusic* _passedMusic, unsigned char _channelNumber){
 	}
 }
 void nathanPlaySound(NathanMusic* _passedMusic, unsigned char _channelNumber){
+	stopChannel(_channelNumber);
 	nathanSetChannelForMusic(_channelNumber,_passedMusic);
 	int i;
 	for (i=0;i<_passedMusic->_musicIsTwoBuffers;i++){
@@ -315,8 +324,10 @@ void _nathanFreeSpecificStruct(NathanMusic* _passedMusic){
 }
 void nathanFreeMusic(NathanMusic* _passedMusic){
 	ndspChnWaveBufClear(_passedMusic->_musicChannel);
+	DSP_FlushDataCache(_passedMusic->_musicMusicBuffer[0],MAXBUFFERSIZE);
 	linearFree(_passedMusic->_musicMusicBuffer[0]);
 	if (_passedMusic->_musicIsTwoBuffers==1){
+		DSP_FlushDataCache(_passedMusic->_musicMusicBuffer[1],MAXBUFFERSIZE);
 		linearFree(_passedMusic->_musicMusicBuffer[1]);
 	}
 	_nathanFreeSpecificStruct(_passedMusic);
@@ -326,6 +337,7 @@ void nathanFreeSound(NathanMusic* _passedMusic){
 	ndspChnWaveBufClear(_passedMusic->_musicChannel);
 	int i;
 	for (i=0;i<_passedMusic->_musicIsTwoBuffers;i++){
+		DSP_FlushDataCache(_passedMusic->_musicMusicBuffer[i],MAXBUFFERSIZE);
 		linearFree(_passedMusic->_musicMusicBuffer[i]);
 	}
 	_nathanFreeSpecificStruct(_passedMusic);

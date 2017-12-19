@@ -61,6 +61,15 @@
 			return 1;
 		#endif
 	}
+	void quitAudio(){
+		#if SOUNDPLAYER == SND_SDL
+			// TODO
+		#elif SOUNDPLAYER == SND_SOLOUD
+			// TODO
+		#elif SOUNDPLAYER == SND_3DS
+			ndspExit();
+		#endif
+	}
 	int getMusicVolume(CROSSPLAYHANDLE _passedMusicHandle){
 		#if SOUNDPLAYER == SND_SDL
 			return Mix_VolumeMusic(-1);
@@ -187,6 +196,9 @@
 		#elif SOUNDPLAYER == SND_SOLOUD
 			Soloud_stop(mySoLoudEngine,toStop);
 		#elif SOUNDPLAYER == SND_3DS
+			ndspChnReset(toStop);
+			ndspChnInitParams(toStop);
+			nathanInit3dsChannel(toStop);
 			ndspChnWaveBufClear(toStop);
 		#endif
 	}
@@ -196,7 +208,7 @@
 		#elif SOUNDPLAYER == SND_SOLOUD
 			Wav_stop(toStop);
 		#elif SOUNDPLAYER == SND_3DS
-			ndspChnWaveBufClear(toStop->_musicChannel);
+			stopMusic(toStop->_musicChannel);
 		#endif
 	}
 	CROSSPLAYHANDLE playSound(CROSSSFX* toPlay, int timesToPlay, unsigned char _passedChannel){

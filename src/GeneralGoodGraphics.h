@@ -115,11 +115,15 @@
 		}
 	#endif
 
-	/*
-	=================================================
-	== IMAGES
-	=================================================
-	*/
+	void quitGraphics(){
+		#if RENDERER == REND_SF2D
+			sf2d_fini();
+		#elif RENDERER == REND_VITA2D
+			// TODO - vita2d quit
+		#elif RENDERER == REND_SDL
+			// TODO - SDL quit
+		#endif
+	}
 	
 	/*
 	/////////////////////////////////////////////////////

@@ -157,7 +157,7 @@
 		#endif
 	}
 
-	void drawTexturePartScale(CrossTexture* passedTexture, int destX, int destY, int texX, int texY, int texW, int texH, float texXScale, float texYScale){
+	void drawTexturePartScale(CrossTexture* passedTexture, int destX, int destY, int texX, int texY, int texW, int texH, double texXScale, double texYScale){
 		EASYFIXCOORDS(&destX,&destY);
 		#if RENDERER == REND_VITA2D
 			vita2d_draw_texture_part_scale(passedTexture,destX,destY,texX,texY,texW, texH, texXScale, texYScale);
@@ -182,7 +182,7 @@
 		#endif
 	}
 
-	void drawTextureScaleTint(CrossTexture* passedTexture, int destX, int destY, float texXScale, float texYScale, unsigned char r, unsigned char g, unsigned char b){
+	void drawTextureScaleTint(CrossTexture* passedTexture, int destX, int destY, double texXScale, double texYScale, unsigned char r, unsigned char g, unsigned char b){
 		EASYFIXCOORDS(&destX,&destY);
 		#if RENDERER == REND_VITA2D
 			vita2d_draw_texture_tint_scale(passedTexture,destX,destY,texXScale,texYScale,RGBA8(r,g,b,255));
@@ -213,7 +213,7 @@
 		#endif
 	}
 
-	void drawTexturePartScaleTint(CrossTexture* passedTexture, int destX, int destY, int texX, int texY, int texW, int texH, float texXScale, float texYScale, unsigned char r, unsigned char g, unsigned b){
+	void drawTexturePartScaleTint(CrossTexture* passedTexture, int destX, int destY, int texX, int texY, int texW, int texH, double texXScale, double texYScale, unsigned char r, unsigned char g, unsigned b){
 		EASYFIXCOORDS(&destX,&destY);
 		#if RENDERER == REND_VITA2D
 			vita2d_draw_texture_tint_part_scale(passedTexture,destX,destY,texX,texY,texW, texH, texXScale, texYScale,RGBA8(r,g,b,255));
@@ -244,7 +244,7 @@
 		#endif
 	}
 	
-	void drawTextureScale(CrossTexture* passedTexture, int destX, int destY, float texXScale, float texYScale){
+	void drawTextureScale(CrossTexture* passedTexture, int destX, int destY, double texXScale, double texYScale){
 		EASYFIXCOORDS(&destX,&destY);
 		#if RENDERER == REND_VITA2D
 			vita2d_draw_texture_scale(passedTexture,destX,destY,texXScale,texYScale);
@@ -268,7 +268,7 @@
 		#endif
 	}
 
-	void drawTextureScaleSize(CrossTexture* passedTexture, int destX, int destY, float texXScale, float texYScale){
+	void drawTextureScaleSize(CrossTexture* passedTexture, int destX, int destY, double texXScale, double texYScale){
 		EASYFIXCOORDS(&destX,&destY);
 		#if RENDERER == REND_VITA2D
 			vita2d_draw_texture_scale(passedTexture,destX,destY,texXScale/(double)getTextureWidth(passedTexture),texYScale/(double)getTextureHeight(passedTexture));
@@ -293,7 +293,7 @@
 	}
 	
 	// TODO MAKE ROTATE ON WINDOWS
-	void drawTexturePartScaleRotate(CrossTexture* texture, int x, int y, float tex_x, float tex_y, float tex_w, float tex_h, float x_scale, float y_scale, float rad){
+	void drawTexturePartScaleRotate(CrossTexture* texture, int x, int y, int tex_x, int tex_y, int tex_w, int tex_h, double x_scale, double y_scale, double rad){
 		EASYFIXCOORDS(&x,&y);
 		#if RENDERER == REND_VITA2D
 			vita2d_draw_texture_part_scale_rotate(texture,x,y,tex_x,tex_y,tex_w,tex_h,x_scale,y_scale,rad);
@@ -331,7 +331,7 @@
 			sf2d_draw_texture_blend(passedTexture,_destX,_destY,RGBA8(255,255,255,alpha));
 		#endif
 	}
-	void drawTextureScaleAlpha(CrossTexture* passedTexture, int destX, int destY, float texXScale, float texYScale, unsigned char alpha){
+	void drawTextureScaleAlpha(CrossTexture* passedTexture, int destX, int destY, double texXScale, double texYScale, unsigned char alpha){
 		EASYFIXCOORDS(&destX,&destY);
 		#if RENDERER == REND_VITA2D
 			vita2d_draw_texture_tint_scale(passedTexture,destX,destY,texXScale,texYScale,RGBA8(255,255,255,alpha));
