@@ -32,12 +32,15 @@ int main(int argc, char *argv[]){
 		if (wasJustPressed(SCE_CTRL_START)){
 			break;
 		}
+		// You can hold down left and right to move
 		if (isDown(SCE_CTRL_RIGHT)){
-			myImageY++;
+			myImageX++;
 		}
 		if (isDown(SCE_CTRL_LEFT)){
 			myImageX--;
 		}
+
+		// You must tap up or down over and over again to move
 		if (wasJustPressed(SCE_CTRL_UP)){
 			myImageY--;
 		}

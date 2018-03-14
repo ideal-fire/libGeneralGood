@@ -95,7 +95,7 @@
 			int _currentWidth=0;
 			int i;
 			for (i=0;i<strlen(message);i++){
-				if (message[i]-32<95){
+				if (message[i]-32<95 && message[i]-32>=0){
 					_currentWidth+=(bitmapFontLetterInfo[message[i]-32].imageDisplayWidth)*scale;
 				}
 			}

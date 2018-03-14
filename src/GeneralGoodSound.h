@@ -35,6 +35,13 @@
 		#define CROSSSFX NathanMusic
 		#define CROSSPLAYHANDLE unsigned char
 	#endif
+	#if SOUNDPLAYER == SND_VITA
+		#include "VitaSound.h"
+		#define CROSSMUSIC NathanAudio
+		#define CROSSSFX CROSSMUSIC
+		// Same as CROSSMUSIC
+		#define CROSSPLAYHANDLE CROSSMUSIC* // I need to say here that it's a pointer
+	#endif
 
 	char initAudio(){
 		#if SOUNDPLAYER == SND_SDL
@@ -59,6 +66,9 @@
 				nathanInit3dsChannel(i);
 			}
 			return 1;
+		#elif SOUNDPLAYER == SND_VITA
+			// Not needed?
+			return 1;
 		#endif
 	}
 	void quitAudio(){
@@ -68,6 +78,8 @@
 			// TODO
 		#elif SOUNDPLAYER == SND_3DS
 			ndspExit();
+		#elif SOUNDPLAYER == SND_VITA
+			// Not needed?
 		#endif
 	}
 	int getMusicVolume(CROSSPLAYHANDLE _passedMusicHandle){
@@ -78,6 +90,8 @@
 		#elif SOUNDPLAYER == SND_3DS
 			// TODO
 			return 128;
+		#elif SOUNDPLAYER == SND_VITA
+			return _mlgsnd_vitaSoundValueToGeneralGood(_passedMusicHandle->volume);
 		#elif SOUNDPLAYER == SND_NONE
 			return 0;
 		#endif
@@ -89,6 +103,8 @@
 			Soloud_setVolume(mySoLoudEngine,_passedMusic,(float)((float)vol/(float)128));
 		#elif SOUNDPLAYER == SND_3DS
 			nathanSetChannelVolume(_passedMusic,(float)(((double)vol)/128));
+		#elif SOUNDPLAYER == SND_VITA
+			mlgsnd_setVolume(_passedMusic,vol); // On the 128 scale already
 		#endif
 	}
 	void setMusicVolumeBefore(CROSSMUSIC* _passedMusic,int vol){
@@ -98,6 +114,8 @@
 			WavStream_setVolume(_passedMusic,(float)((float)vol/(float)128));
 		#elif SOUNDPLAYER == SND_3DS
 			setMusicVolume(_passedMusic->_musicChannel, vol);
+		#elif SOUNDPLAYER == SND_VITA
+			setMusicVolume(_passedMusic,vol);
 		#endif
 	}
 	void setSFXVolumeBefore(CROSSSFX* tochange, int toval){
@@ -107,6 +125,8 @@
 			Wav_setVolume(tochange,(float)((float)toval/(float)128));
 		#elif SOUNDPLAYER == SND_3DS
 			setMusicVolumeBefore(tochange,toval);
+		#elif SOUNDPLAYER == SND_VITA
+			setMusicVolume(tochange,toval);
 		#endif
 	}
 	void setSFXVolume(CROSSPLAYHANDLE tochange, int toval){
@@ -115,6 +135,8 @@
 		#elif SOUNDPLAYER == SND_SOLOUD
 			setMusicVolume(tochange,toval);
 		#elif SOUNDPLAYER == SND_3DS
+			setMusicVolume(tochange,toval);
+		#elif SOUNDPLAYER == SND_VITA
 			setMusicVolume(tochange,toval);
 		#endif
 	}
@@ -140,6 +162,8 @@
 				svcSleepThread(100000000); // Wait for one tenth of a second
 			}
 			ndspChnWaveBufClear(_passedHandle);
+		#elif SOUNDPLAYER == SND_VITA
+			mlgsnd_fadeoutMusic(_passedHandle,time);
 		#endif
 	}
 	CROSSSFX* loadSound(char* filepath){
@@ -153,6 +177,8 @@
 			NathanMusic* _tempReturn = malloc(sizeof(NathanMusic));
 			nathanLoadSoundEffect(_tempReturn,filepath);
 			return _tempReturn;
+		#elif SOUNDPLAYER == SND_VITA
+			return mlgsnd_loadMusic(filepath,0);
 		#elif SOUNDPLAYER == SND_NONE
 			return NULL;
 		#endif
@@ -168,6 +194,8 @@
 			NathanMusic* _tempReturn = malloc(sizeof(NathanMusic));
 			nathanLoadMusic(_tempReturn,filepath,1);
 			return _tempReturn;
+		#elif SOUNDPLAYER == SND_VITA
+			return mlgsnd_loadMusic(filepath,1);
 		#elif SOUNDPLAYER == SND_NONE
 			return NULL;
 		#endif
@@ -179,6 +207,8 @@
 			Soloud_setPause(mySoLoudEngine,_passedHandle, 1);
 		#elif SOUNDPLAYER == SND_3DS
 			ndspChnSetPaused(_passedHandle,1);
+		#elif SOUNDPLAYER == SND_VITA
+			_passedHandle->quitStatus = NAUDIO_QUITSTATUS_PAUSED;
 		#endif
 	}
 	void resumeMusic(CROSSPLAYHANDLE _passedHandle){
@@ -188,6 +218,8 @@
 			Soloud_setPause(mySoLoudEngine,_passedHandle, 0);
 		#elif SOUNDPLAYER == SND_3DS
 			ndspChnSetPaused(_passedHandle,0);
+		#elif SOUNDPLAYER == SND_VITA
+			_passedHandle->quitStatus = NAUDIO_QUITSTATUS_PLAYING;
 		#endif
 	}
 	void stopMusic(CROSSPLAYHANDLE toStop){
@@ -200,6 +232,8 @@
 			ndspChnInitParams(toStop);
 			nathanInit3dsChannel(toStop);
 			ndspChnWaveBufClear(toStop);
+		#elif SOUNDPLAYER == SND_VITA
+			mlgsnd_stopMusic(toStop);
 		#endif
 	}
 	void stopSound(CROSSSFX* toStop){
@@ -209,6 +243,8 @@
 			Wav_stop(toStop);
 		#elif SOUNDPLAYER == SND_3DS
 			stopMusic(toStop->_musicChannel);
+		#elif SOUNDPLAYER == SND_VITA
+			stopMusic(toStop);
 		#endif
 	}
 	CROSSPLAYHANDLE playSound(CROSSSFX* toPlay, int timesToPlay, unsigned char _passedChannel){
@@ -224,6 +260,11 @@
 			ndspChnWaveBufClear(_passedChannel);
 			nathanPlaySound(toPlay, _passedChannel);
 			return toPlay->_musicChannel;
+		#elif SOUNDPLAYER == SND_VITA
+			if (_passedChannel==1 || timesToPlay==1){ // PREVENT COMPILER WARNING
+			}
+			mlgsnd_play(toPlay);
+			return toPlay;
 		#elif SOUNDPLAYER == SND_NONE
 			return 0;
 		#endif
@@ -238,6 +279,8 @@
 		#elif SOUNDPLAYER == SND_3DS
 			nathanPlayMusic(toPlay,_passedChannel);
 			return toPlay->_musicChannel;
+		#elif SOUNDPLAYER == SND_VITA
+			return playSound(toPlay,1,_passedChannel);
 		#elif SOUNDPLAYER == SND_NONE
 			return 1;
 		#endif
@@ -250,6 +293,8 @@
 		#elif SOUNDPLAYER == SND_3DS
 			nathanFreeSound(toFree);
 			free(toFree);
+		#elif SOUNDPLAYER == SND_VITA
+			mlgsnd_freeMusic(toFree);
 		#endif
 	}
 	void freeMusic(CROSSMUSIC* toFree){
@@ -260,6 +305,8 @@
 		#elif SOUNDPLAYER == SND_3DS
 			nathanFreeMusic(toFree);
 			free(toFree);
+		#elif SOUNDPLAYER == SND_VITA
+			mlgsnd_freeMusic(toFree);
 		#endif
 	}
 #endif

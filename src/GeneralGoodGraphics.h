@@ -1,15 +1,15 @@
 #ifndef GENERALGOODGRAPHICSHEADER
 #define GENERALGOODGRAPHICSHEADER
 
-	#if ISUSINGEXTENDED == 0
-		int FixX(int x);
-		int FixY(int y);
+	#if DOFIXCOORDS == 1
+		int fixX(int x);
+		int fixY(int y);
 	#endif
 
 	#if DOFIXCOORDS == 1
 		void FixCoords(int* _x, int* _y){
-			*_x = FixX(*_x);
-			*_y = FixY(*_y);
+			*_x = fixX(*_x);
+			*_y = fixY(*_y);
 		}
 		#define EASYFIXCOORDS(x, y) FixCoords(x,y)
 	#else
@@ -55,6 +55,7 @@
 				mainWindow = SDL_CreateWindow( "HappyWindo", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, _windowWidth, _windowHeight, SDL_WINDOW_SHOWN );
 				*_storeWindowWidth=_windowWidth;
 				*_storeWindowHeight=_windowHeight;
+				showErrorIfNull(mainWindow);
 			#endif
 			if (USEVSYNC){
 				mainWindowRenderer = SDL_CreateRenderer( mainWindow, -1, SDL_RENDERER_PRESENTVSYNC);
