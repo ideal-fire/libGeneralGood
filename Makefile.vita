@@ -47,6 +47,7 @@ $(LUA_A): $(BASE_O)
 
 clean:
 	$(RM) libGeneralGoodVita.a GeneralMain.o
+	$(RM) src/GeneralMain.o
 
 echo:
 	@echo "PLAT= $(PLAT)"

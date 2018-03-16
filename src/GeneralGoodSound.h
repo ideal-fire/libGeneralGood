@@ -178,7 +178,7 @@
 			nathanLoadSoundEffect(_tempReturn,filepath);
 			return _tempReturn;
 		#elif SOUNDPLAYER == SND_VITA
-			return mlgsnd_loadMusic(filepath,0);
+			return mlgsnd_loadSound(filepath);
 		#elif SOUNDPLAYER == SND_NONE
 			return NULL;
 		#endif
@@ -195,7 +195,7 @@
 			nathanLoadMusic(_tempReturn,filepath,1);
 			return _tempReturn;
 		#elif SOUNDPLAYER == SND_VITA
-			return mlgsnd_loadMusic(filepath,1);
+			return mlgsnd_loadMusic(filepath);
 		#elif SOUNDPLAYER == SND_NONE
 			return NULL;
 		#endif
