@@ -33,7 +33,7 @@
 // 32000 is good
 // 19200 is probably good
 // 4800 is godo for fadeout
-#define AUDIO_BUFFER_LENGTH 4800
+#define AUDIO_BUFFER_LENGTH SCE_AUDIO_MAX_LEN
 
 #define FILE_FORMAT_NONE 0
 #define FILE_FORMAT_OGG 1
@@ -77,12 +77,13 @@ typedef struct fruhfreuir{
 	SceUID playerThreadId; // Thread ID for the thread that's playing this sound.
 	signed int audioPort;
 
+	signed char isFirstTime;
 	signed char quitStatus; // 0 if should not quit, 1 if should quit, -1 if already quit
 	signed char isFadingOut;
 	unsigned int fadeoutPerSwap; // In Vita volume units
 	signed int volume;
 	signed int lastVolume; // Used to detect volume changes
-	signed char myStreamStatus;
+	signed char myStreamStatus; // If we should stream or not
 }NathanAudio;
 int lastConverterError=0;
 
@@ -92,7 +93,6 @@ int lastConverterError=0;
 // TODO - Maybe make the sound threads before they're needed.
 // TODO - Support for libGeneralGood
 // TODO - libmpg123, use it.
-// TODO - Make test code where I see what happens if I don't load the next sound effect.
 
 int64_t _mlgsnd_getLengthInSamples(NathanAudio* _passedAudio){
 	if (_passedAudio->fileFormat == FILE_FORMAT_OGG){
@@ -220,7 +220,7 @@ void mlgsnd_fadeoutMusic(NathanAudio* _passedAudio, unsigned int _fadeoutTime){
 	_passedAudio->isFadingOut=1;
 }
 void mlgsnd_stopMusic(NathanAudio* _passedAudio){
-	if (_passedAudio->quitStatus == NAUDIO_QUITSTATUS_QUITTED || _passedAudio->playerThreadId == 0 || _passedAudio->audioPort == -1){
+	if (_passedAudio->quitStatus == NAUDIO_QUITSTATUS_QUITTED || _passedAudio->playerThreadId == -1 || _passedAudio->audioPort == -1){
 		//printf("should not stop.\n");
 		return;
 	}
@@ -231,7 +231,7 @@ void mlgsnd_stopMusic(NathanAudio* _passedAudio){
 	SceUInt _tempStoreTimeout = 50000000;
 	int _storeExitStatus = 0;
 	sceKernelWaitThreadEnd(_passedAudio->playerThreadId,&_storeExitStatus,&_tempStoreTimeout); // Timeout is 5 seconds
-	_passedAudio->playerThreadId=0;
+	_passedAudio->playerThreadId=-1;
 	_passedAudio->volume = SCE_AUDIO_OUT_MAX_VOL; // If we replay this sound
 	_passedAudio->lastVolume = _passedAudio->volume;
 }
@@ -354,6 +354,8 @@ int mlgsnd_soundPlayingThread(SceSize args, void *argp){
 	sceAudioOutReleasePort(_passedAudio->audioPort); // Release the port now that there's no audio
 	_passedAudio->audioPort=-1; // Reset port variable
 	_passedAudio->quitStatus = NAUDIO_QUITSTATUS_QUITTED; // Set quit before exiting
+	_passedAudio->playerThreadId=-1;
+	printf("Stopped by myself.\n");
 	sceKernelExitDeleteThread(0);
 	return 0;
 }
@@ -374,18 +376,29 @@ NathanAudio* _mlgsnd_loadAudio(char* filename, char _passedShouldLoop, char _pas
 	
 	// Init data for audio
 	_returnAudio->myStreamStatus = (_passedShouldStream ? STREAMSTATUS_STREAMING : STREAMSTATUS_DONTSTREAM);
-	if (_returnAudio->myStreamStatus==STREAMSTATUS_STREAMING){
+
+	// How many buffers we would need if we were streaming
+	_returnAudio->numBuffers = ceil(_mlgsnd_getLengthInSamples(_returnAudio)/(double)AUDIO_BUFFER_LENGTH);
+
+	// If we could fit our streaming sound in just our swap buffers then don't stream
+	if (_returnAudio->numBuffers<=STREAMING_BUFFERS){
+		printf("Dont stream.\n");
+		_returnAudio->myStreamStatus=STREAMSTATUS_DONTSTREAM;
+	}
+	// Change the numBuffers variable if we're streaming
+	if (_returnAudio->myStreamStatus==STREAMSTATUS_STREAMING){ // We are actually streaming
 		_returnAudio->numBuffers=STREAMING_BUFFERS;
 	}else{
-		_returnAudio->numBuffers = ceil(_mlgsnd_getLengthInSamples(_returnAudio)/(double)AUDIO_BUFFER_LENGTH);
+		// We're not streaming, don't change the numBuffers variable
 	}
 	_returnAudio->quitStatus=NAUDIO_QUITSTATUS_PREPARING;
 	_returnAudio->isFadingOut=0;
 	_returnAudio->volume = SCE_AUDIO_OUT_MAX_VOL; // SCE_AUDIO_OUT_MAX_VOL is actually max volume, not 0 decibels.
 	_returnAudio->lastVolume = _returnAudio->volume;
 	_returnAudio->shouldLoop = _passedShouldLoop;
-	_returnAudio->playerThreadId=0;
+	_returnAudio->playerThreadId=-1;
 	_returnAudio->audioPort=-1;
+	_returnAudio->isFirstTime=1;
 	
 	// Setup sample rate ratios
 	double _oldRateToNewRateRatio = (double)mlgsnd_getSampleRate(_returnAudio)/48000;
@@ -453,12 +466,19 @@ char _mlgsnd_initPort(NathanAudio* _passedAudio){
 	return 1;
 }
 void mlgsnd_play(NathanAudio* _passedAudio){
-	if (_passedAudio->playerThreadId!=0){
+	if (_passedAudio->playerThreadId!=-1){
+		printf("need to stop.\n");
 		mlgsnd_stopMusic(_passedAudio);
 	}
-	if (_passedAudio->myStreamStatus == STREAMSTATUS_STREAMING){
+	// We may need to rewind if we're streaming and this isn't our first time because buffers and file positions change.
+	if (_passedAudio->myStreamStatus == STREAMSTATUS_STREAMING && !_passedAudio->isFirstTime){
+		printf("Need to rewind\n");
 		// If this is our second time playing this audio
 		mlgsnd_restartAudio(_passedAudio);
+	}
+	if (_passedAudio->isFirstTime){
+		printf("Change first time variable.\n");
+		_passedAudio->isFirstTime=0;
 	}
 	// Initialize audio ports and such
 	if (_mlgsnd_initPort(_passedAudio)==0){
@@ -482,9 +502,9 @@ int main(void) {
 		printf("Type sizes wrong, f;d, %d;%d\n",sizeof(float),sizeof(short));
 	}
 
-	NathanAudio* _bgmTest = mlgsnd_loadMusic("ux0:data/SOUNDTEST/dppbattlemono.ogg");
-	mlgsnd_setVolume(_bgmTest,30);
-	mlgsnd_play(_bgmTest);
+	//NathanAudio* _bgmTest = mlgsnd_loadMusic("ux0:data/SOUNDTEST/dppbattlemono.ogg");
+	//mlgsnd_setVolume(_bgmTest,30);
+	//mlgsnd_play(_bgmTest);
 
 	NathanAudio* myHappyAudio;
 	//printf("Start tryna load music.\n");
@@ -494,18 +514,19 @@ int main(void) {
 	
 	//nathanAudioPlay(myHappyAudio2);
 
-	myHappyAudio = mlgsnd_loadSound("ux0:data/SOUNDTEST/otherlengthuntitled.ogg");
+	myHappyAudio = _mlgsnd_loadAudio("ux0:data/SOUNDTEST/wa_038.ogg",0,1);
 	mlgsnd_setVolume(myHappyAudio,128);
-	printf("is played.\n");
+	//printf("is played.\n");
 	mlgsnd_play(myHappyAudio);
-	sceKernelDelayThread(500);
-	mlgsnd_freeMusic(myHappyAudio);
-	printf("was freed\n");
+	//sceKernelDelayThread(500);
+	//mlgsnd_freeMusic(myHappyAudio);
+	//printf("was freed\n");
+
 	//myHappyAudio = mlgsnd_loadSound("ux0:data/SOUNDTEST/otherlengthuntitled.ogg");
 	//mlgsnd_setVolume(myHappyAudio,128);
 	//mlgsnd_play(myHappyAudio);
 
-	int i;
+	//int i;
 
 	//for (i=0;;++i){
 	//	printf("Try %d\n",i);
@@ -517,7 +538,7 @@ int main(void) {
 	//	fclose(fp);
 	//}
 
-	NathanAudio* myHappyAudio2;
+	//NathanAudio* myHappyAudio2;
 	
 	//for (i=0;;++i){ // Fails starting on and after 272nd try. (273rd try on another attempt)
 	//	if (i>250){
@@ -528,11 +549,15 @@ int main(void) {
 	//	mlgsnd_stopMusic(myHappyAudio2);
 	//	mlgsnd_freeMusic(myHappyAudio2);
 	//}
-	printf("X-Stop\nO-Free\nSquare-Pause\nTrinalge-Fadeout\n");
+	printf("X-Stop\nO-Free\nSquare-Pause\nTrinalge-Fadeout\nUp - play");
 	while (1){
 		
 		SceCtrlData ctrl;
 		sceCtrlPeekBufferPositive(0, &ctrl, 1);
+		if ((ctrl.buttons & SCE_CTRL_UP) && !(lastCtrl.buttons & SCE_CTRL_UP)){
+			printf("play music\n");
+			mlgsnd_play(myHappyAudio);
+		}
 		if ((ctrl.buttons & SCE_CTRL_CROSS) && !(lastCtrl.buttons & SCE_CTRL_CROSS)){
 			printf("Stop music\n");
 			mlgsnd_stopMusic(myHappyAudio);
