@@ -96,8 +96,6 @@ int lastConverterError=0;
 // TODO - See what happens if I play Higurashi sounds in this test project. By that I mean start some BGM and let me play a bunch of DIFFERENT voice lines, each one needing to free the last one's memory because they're stored in the same variable.
 // TODO - libmpg123, use it.
 
-// TODO - Is this lag? CHeck how much time passes between functions.
-
 int64_t _mlgsnd_getLengthInSamples(NathanAudio* _passedAudio){
 	if (_passedAudio->fileFormat == FILE_FORMAT_OGG){
 		return ov_pcm_total(_passedAudio->mainAudioStruct,-1);
@@ -266,14 +264,13 @@ void mlgsnd_freeMusic(NathanAudio* _passedAudio){
 	for (i=0;i<_passedAudio->numBuffers;i++){
 		free(_passedAudio->audioBuffers[i]);
 	}
+	free(_passedAudio->audioBuffers);
 	// Free temp conversion buffers
 	free(_passedAudio->tempFloatConverted);
 	free(_passedAudio->tempFloatSource);
 	// Phew, almost forgot these
 	free(_passedAudio->mainAudioStruct);
 	free(_passedAudio);
-
-	_passedAudio->quitStatus = NAUDIO_QUITSTATUS_FREED;
 }
 
 long mlgsnd_getBufferSize(NathanAudio* _passedAudio, unsigned int _numberOfSamples, char _sizeOfUint){
@@ -333,7 +330,7 @@ int mlgsnd_soundPlayingThread(SceSize args, void *argp){
 			sceAudioOutSetVolume(_currentPort, SCE_AUDIO_VOLUME_FLAG_L_CH |SCE_AUDIO_VOLUME_FLAG_R_CH, (int[]){_passedAudio->volume,_passedAudio->volume});
 		}
 
-		SceUInt64 _startTicks = sceKernelGetProcessTimeWide();
+		//SceUInt64 _startTicks = sceKernelGetProcessTimeWide();
 		// Start playing audio
 		sceAudioOutOutput(_currentPort, _passedAudio->audioBuffers[i]);
 		
