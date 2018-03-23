@@ -27,9 +27,12 @@
 
 	unsigned char isSkipping=0;
 	signed char InputValidity = 1;
-
-	int screenHeight = 544;
-	int screenWidth = 960;
+	
+	// Required to fix touchscreen coords
+	#if PLATFORM == PLAT_COMPUTER
+		extern int screenWidth;
+		extern int screenHeight;
+	#endif
 
 	#include <stdio.h>
 	#include <math.h>
@@ -191,73 +194,70 @@
 				if( e.type == SDL_QUIT ){
 					//XOutFunction();
 				}
-				#if PLATFORM == PLAT_COMPUTER
-					if( e.type == SDL_KEYDOWN ){
-						if (e.key.keysym.sym==SDLK_z){ /* X */
-							pad[SCE_CTRL_CROSS]=1;
-						}else if (e.key.keysym.sym==SDLK_x){/* O */
-							pad[SCE_CTRL_CIRCLE]=1;
-						}else if (e.key.keysym.sym==SDLK_LEFT){/* Left */
-							pad[SCE_CTRL_LEFT]=1;
-						}else if (e.key.keysym.sym==SDLK_RIGHT){ /* Right */
-							pad[SCE_CTRL_RIGHT]=1;
-						}else if (e.key.keysym.sym==SDLK_DOWN){ /* Down */
-							pad[SCE_CTRL_DOWN]=1;
-						}else if (e.key.keysym.sym==SDLK_UP){ /* Up */
-							pad[SCE_CTRL_UP]=1;
-						}else if (e.key.keysym.sym==SDLK_a){ /* Square */
-							pad[SCE_CTRL_SQUARE]=1;
-						}else if (e.key.keysym.sym==SDLK_s){ /* Triangle */
-							pad[SCE_CTRL_TRIANGLE]=1;
-						}else if (e.key.keysym.sym==SDLK_ESCAPE || e.key.keysym.sym==SDLK_RETURN){ /* Start */
-							pad[SCE_CTRL_START]=1;
-						}else if (e.key.keysym.sym==SDLK_e){ /* Select */
-							pad[SCE_CTRL_SELECT]=1;
-						}else if (e.key.keysym.sym==SDLK_b || e.key.keysym.sym==SDLK_AC_BACK){ /* Back button on android */
-							pad[SCE_ANDROID_BACK]=1;
-						}
-					}else if (e.type == SDL_KEYUP){
-						if (e.key.keysym.sym==SDLK_z){ /* X */
-							pad[SCE_CTRL_CROSS]=0;
-						}else if (e.key.keysym.sym==SDLK_x){/* O */
-							pad[SCE_CTRL_CIRCLE]=0;
-						}else if (e.key.keysym.sym==SDLK_LEFT){/* Left */
-							pad[SCE_CTRL_LEFT]=0;
-						}else if (e.key.keysym.sym==SDLK_RIGHT){ /* Right */
-							pad[SCE_CTRL_RIGHT]=0;
-						}else if (e.key.keysym.sym==SDLK_DOWN){ /* Down */
-							pad[SCE_CTRL_DOWN]=0;
-						}else if (e.key.keysym.sym==SDLK_UP){ /* Up */
-							pad[SCE_CTRL_UP]=0;
-						}else if (e.key.keysym.sym==SDLK_a){ /* Square */
-							pad[SCE_CTRL_SQUARE]=0;
-						}else if (e.key.keysym.sym==SDLK_s){ /* Triangle */
-							pad[SCE_CTRL_TRIANGLE]=0;
-						}else if (e.key.keysym.sym==SDLK_ESCAPE || e.key.keysym.sym==SDLK_RETURN){ /* Start */
-							pad[SCE_CTRL_START]=0;
-						}else if (e.key.keysym.sym==SDLK_e){ /* Select */
-							pad[SCE_CTRL_SELECT]=0;
-						}else if (e.key.keysym.sym==SDLK_b || e.key.keysym.sym==SDLK_AC_BACK){ /* Back button on android */
-							pad[SCE_ANDROID_BACK]=0;
-						}
+				if( e.type == SDL_KEYDOWN ){
+					if (e.key.keysym.sym==SDLK_z){ /* X */
+						pad[SCE_CTRL_CROSS]=1;
+					}else if (e.key.keysym.sym==SDLK_x){/* O */
+						pad[SCE_CTRL_CIRCLE]=1;
+					}else if (e.key.keysym.sym==SDLK_LEFT){/* Left */
+						pad[SCE_CTRL_LEFT]=1;
+					}else if (e.key.keysym.sym==SDLK_RIGHT){ /* Right */
+						pad[SCE_CTRL_RIGHT]=1;
+					}else if (e.key.keysym.sym==SDLK_DOWN){ /* Down */
+						pad[SCE_CTRL_DOWN]=1;
+					}else if (e.key.keysym.sym==SDLK_UP){ /* Up */
+						pad[SCE_CTRL_UP]=1;
+					}else if (e.key.keysym.sym==SDLK_a){ /* Square */
+						pad[SCE_CTRL_SQUARE]=1;
+					}else if (e.key.keysym.sym==SDLK_s){ /* Triangle */
+						pad[SCE_CTRL_TRIANGLE]=1;
+					}else if (e.key.keysym.sym==SDLK_ESCAPE || e.key.keysym.sym==SDLK_RETURN){ /* Start */
+						pad[SCE_CTRL_START]=1;
+					}else if (e.key.keysym.sym==SDLK_e){ /* Select */
+						pad[SCE_CTRL_SELECT]=1;
+					}else if (e.key.keysym.sym==SDLK_b || e.key.keysym.sym==SDLK_AC_BACK){ /* Back button on android */
+						pad[SCE_ANDROID_BACK]=1;
 					}
-				#endif
+				}else if (e.type == SDL_KEYUP){
+					if (e.key.keysym.sym==SDLK_z){ /* X */
+						pad[SCE_CTRL_CROSS]=0;
+					}else if (e.key.keysym.sym==SDLK_x){/* O */
+						pad[SCE_CTRL_CIRCLE]=0;
+					}else if (e.key.keysym.sym==SDLK_LEFT){/* Left */
+						pad[SCE_CTRL_LEFT]=0;
+					}else if (e.key.keysym.sym==SDLK_RIGHT){ /* Right */
+						pad[SCE_CTRL_RIGHT]=0;
+					}else if (e.key.keysym.sym==SDLK_DOWN){ /* Down */
+						pad[SCE_CTRL_DOWN]=0;
+					}else if (e.key.keysym.sym==SDLK_UP){ /* Up */
+						pad[SCE_CTRL_UP]=0;
+					}else if (e.key.keysym.sym==SDLK_a){ /* Square */
+						pad[SCE_CTRL_SQUARE]=0;
+					}else if (e.key.keysym.sym==SDLK_s){ /* Triangle */
+						pad[SCE_CTRL_TRIANGLE]=0;
+					}else if (e.key.keysym.sym==SDLK_ESCAPE || e.key.keysym.sym==SDLK_RETURN){ /* Start */
+						pad[SCE_CTRL_START]=0;
+					}else if (e.key.keysym.sym==SDLK_e){ /* Select */
+						pad[SCE_CTRL_SELECT]=0;
+					}else if (e.key.keysym.sym==SDLK_b || e.key.keysym.sym==SDLK_AC_BACK){ /* Back button on android */
+						pad[SCE_ANDROID_BACK]=0;
+					}
+				}
 				
-				#if PLATFORM == PLAT_COMPUTER
-					if( e.type == SDL_FINGERDOWN || (pad[SCE_TOUCH]==1 && e.type == SDL_FINGERMOTION)){
-						touchX = e.tfinger.x * screenWidth;
-						touchY = e.tfinger.y * screenHeight;
-						pad[SCE_TOUCH]=1;
-					}else if (e.type == SDL_MOUSEBUTTONDOWN || (pad[SCE_TOUCH]==1 && e.type == SDL_MOUSEMOTION) ){
-						SDL_GetMouseState(&touchX,&touchY);
-						pad[SCE_TOUCH] = 1;
-					}
-					if (e.type == SDL_FINGERUP){
-						pad[SCE_TOUCH] = 0;
-					}else if (e.type == SDL_MOUSEBUTTONUP){
-						pad[SCE_TOUCH] = 0;
-					}
-				#endif
+				if( e.type == SDL_FINGERDOWN || (pad[SCE_TOUCH]==1 && e.type == SDL_FINGERMOTION)){
+					touchX = e.tfinger.x * screenWidth;
+					touchY = e.tfinger.y * screenHeight;
+					pad[SCE_TOUCH]=1;
+				}else if (e.type == SDL_MOUSEBUTTONDOWN || (pad[SCE_TOUCH]==1 && e.type == SDL_MOUSEMOTION) ){
+					SDL_GetMouseState(&touchX,&touchY);
+					pad[SCE_TOUCH] = 1;
+				}
+				if (e.type == SDL_FINGERUP){
+					pad[SCE_TOUCH] = 0;
+				}else if (e.type == SDL_MOUSEBUTTONUP){
+					pad[SCE_TOUCH] = 0;
+				}
+				
 
 			}
 		#elif PLATFORM == PLAT_3DS

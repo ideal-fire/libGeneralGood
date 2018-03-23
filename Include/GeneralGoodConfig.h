@@ -102,7 +102,7 @@
 		#define RENDERER REND_SDL
 		#define TEXTRENDERER TEXT_FONTCACHE
 	#else
-		// Put custom stuff here
+		#warning Put custom stuff here
 		// #define PLATFORM a
 		// #define SUBPLATFORM a
 		// #define SOUNDPLAYER a

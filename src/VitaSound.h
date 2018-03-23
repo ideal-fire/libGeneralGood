@@ -33,7 +33,7 @@
 // 32000 is good
 // 19200 is probably good
 // 4800 is godo for fadeout
-#define AUDIO_BUFFER_LENGTH SCE_AUDIO_MAX_LEN
+#define AUDIO_BUFFER_LENGTH 4800
 
 #define FILE_FORMAT_NONE 0
 #define FILE_FORMAT_OGG 1
@@ -56,7 +56,8 @@
 // if value is >= STREAMSTATUS_DONTSTREAM the do not stream
 #define STREAMSTATUS_STREAMING 1
 #define STREAMSTATUS_DONTSTREAM 2
-//#define STREAMSTATUS_DONESTREAMING 3
+#define STREAMSTATUS_MINISTREAM 3 // Streams until it reaches the end of the allocated buffers
+//#define STREAMSTATUS_DONESTREAMING 4 // Done with ministream
 
 typedef struct fruhfreuir{
 	void* mainAudioStruct; // malloc'd and needs a free function
@@ -71,7 +72,9 @@ typedef struct fruhfreuir{
 	unsigned int unscaledSamples; // Number of samples to load from the file and convert
 	unsigned int scaledSamples; // Number of samples to play and size of destination buffer
 
-	signed char numBuffers; // Number of audio buffers we can swap between.
+	signed char totalPlaying; // Non-streamed data can be played from multiple threads.
+
+	unsigned int numBuffers; // Number of audio buffers we can swap between.
 	signed char fileFormat; // Tells you what the file format is, OGG, WAV, etc.
 	signed char shouldLoop; // bool
 	SceUID playerThreadId; // Thread ID for the thread that's playing this sound.
@@ -90,9 +93,10 @@ int lastConverterError=0;
 //signed char nextLoadableSoundBuffer=1;
 //signed char lastLoadedSoundBuffer=1;
 
-// TODO - Maybe make the sound threads before they're needed.
-// TODO - Support for libGeneralGood
+// TODO - See what happens if I play Higurashi sounds in this test project. By that I mean start some BGM and let me play a bunch of DIFFERENT voice lines, each one needing to free the last one's memory because they're stored in the same variable.
 // TODO - libmpg123, use it.
+
+// TODO - Is this lag? CHeck how much time passes between functions.
 
 int64_t _mlgsnd_getLengthInSamples(NathanAudio* _passedAudio){
 	if (_passedAudio->fileFormat == FILE_FORMAT_OGG){
@@ -115,7 +119,7 @@ void _mlgsnd_waitWhilePreparing(NathanAudio* _passedAudio){
 void mlgsnd_setVolume(NathanAudio* _passedAudio, signed int _newVolume){
 	//_mlgsnd_waitWhilePreparing(_passedAudio);
 	//if (_passedAudio->audioPort!=-1 && _passedAudio->playerThreadId!=0 && _passedAudio->quitStatus!=NAUDIO_QUITSTATUS_FREED){ // If is alive audio
-		_passedAudio->volume = (int)((_newVolume/(double)128)*SCE_AUDIO_OUT_MAX_VOL);
+	_passedAudio->volume = (int)((_newVolume/(double)128)*SCE_AUDIO_OUT_MAX_VOL);
 	//	sceAudioOutSetVolume(_passedAudio->audioPort, SCE_AUDIO_VOLUME_FLAG_L_CH |SCE_AUDIO_VOLUME_FLAG_R_CH, (int[]){_passedAudio->volume,_passedAudio->volume}); 
 	//}	
 }
@@ -164,7 +168,7 @@ long mlgsnd_getSampleRate(NathanAudio* _passedMusic){
 	}
 }
 #if !defined(PLATFORM)
-uint64_t getTicks(){
+SceUInt64 getTicks(){
 	return  (sceKernelGetProcessTimeWide());
 }
 #endif
@@ -220,17 +224,24 @@ void mlgsnd_fadeoutMusic(NathanAudio* _passedAudio, unsigned int _fadeoutTime){
 	_passedAudio->isFadingOut=1;
 }
 void mlgsnd_stopMusic(NathanAudio* _passedAudio){
-	if (_passedAudio->quitStatus == NAUDIO_QUITSTATUS_QUITTED || _passedAudio->playerThreadId == -1 || _passedAudio->audioPort == -1){
-		//printf("should not stop.\n");
+	if (_passedAudio->totalPlaying == 0){ // If there are none to stop then don't stop.
 		return;
 	}
 	_passedAudio->quitStatus = NAUDIO_QUITSTATUS_SHOULDQUIT;
+	_passedAudio->volume = 0;
 	if (_passedAudio->audioPort!=-1){
 		sceAudioOutSetVolume(_passedAudio->audioPort, SCE_AUDIO_VOLUME_FLAG_L_CH |SCE_AUDIO_VOLUME_FLAG_R_CH, (int[]){0,0}); // Make it seem like the audio is stopped while it actually stops
 	}
-	SceUInt _tempStoreTimeout = 50000000;
-	int _storeExitStatus = 0;
-	sceKernelWaitThreadEnd(_passedAudio->playerThreadId,&_storeExitStatus,&_tempStoreTimeout); // Timeout is 5 seconds
+	
+	if (_passedAudio->totalPlaying==1){ // Only wait for thread exit if we have only one thread.
+		SceUInt _tempStoreTimeout = 50000000;
+		int _storeExitStatus = 0;
+		sceKernelWaitThreadEnd(_passedAudio->playerThreadId,&_storeExitStatus,&_tempStoreTimeout); // Timeout is 5 seconds
+	}else{ // If multiple then wait for all of them to stop.
+		while (_passedAudio->totalPlaying!=0){
+			sceKernelDelayThread(SHORT_SYNC_DELAY_MICRO);
+		}
+	}
 	_passedAudio->playerThreadId=-1;
 	_passedAudio->volume = SCE_AUDIO_OUT_MAX_VOL; // If we replay this sound
 	_passedAudio->lastVolume = _passedAudio->volume;
@@ -277,19 +288,15 @@ signed char mlgsnd_loadMoreData(NathanAudio* _passedAudio, unsigned char _audioB
 			return _possibleReturnValue;
 		}
 	}
-
 	// Change our loaded short data into loaded float data
 	src_short_to_float_array(_passedAudio->audioBuffers[_audioBufferSlot],_passedAudio->tempFloatSource,mlgsnd_getBufferSize(_passedAudio,_passedAudio->unscaledSamples,1));
-	
 	// Convert loaded float data into converted float data with proper sample rate in temp buffer
 	int _possibleErrorCode = src_process(_passedAudio->personalConverter,&_passedAudio->usualConverterData);
 	if (_possibleErrorCode!=0){
 		printf("%s\n",src_strerror(_possibleErrorCode)); // SRC_STATE pointer is NULL
 	}
-	
 	// Change converted float data in temp buffer to short data with proper sample rate in proper buffer
 	src_float_to_short_array(_passedAudio->tempFloatConverted,_passedAudio->audioBuffers[_audioBufferSlot],mlgsnd_getBufferSize(_passedAudio,_passedAudio->scaledSamples,1));
-	
 	return 0;
 }
 
@@ -301,13 +308,18 @@ void _mlgsnd_waitWhilePaused(NathanAudio* _passedAudio){
 }
 
 int mlgsnd_soundPlayingThread(SceSize args, void *argp){
-	NathanAudio* _passedAudio=*((NathanAudio**)argp);
+	argp = *((void***)argp);
+	NathanAudio* _passedAudio=(((void**)argp)[0]);
+	int _currentPort = (int)(((void**)argp)[1]);
+	free(argp);
+
+	++_passedAudio->totalPlaying;
 
 	signed short i;
 	for (i=0;_passedAudio->quitStatus != NAUDIO_QUITSTATUS_SHOULDQUIT;){
 		// Detect volume changes
 		if (_passedAudio->lastVolume!=_passedAudio->volume){
-			sceAudioOutSetVolume(_passedAudio->audioPort, SCE_AUDIO_VOLUME_FLAG_L_CH |SCE_AUDIO_VOLUME_FLAG_R_CH, (int[]){_passedAudio->volume,_passedAudio->volume}); 
+			sceAudioOutSetVolume(_currentPort, SCE_AUDIO_VOLUME_FLAG_L_CH |SCE_AUDIO_VOLUME_FLAG_R_CH, (int[]){_passedAudio->volume,_passedAudio->volume});
 			_passedAudio->lastVolume=_passedAudio->volume;
 		}
 
@@ -318,14 +330,16 @@ int mlgsnd_soundPlayingThread(SceSize args, void *argp){
 			if (_passedAudio->volume<0){
 				break;
 			}
-			sceAudioOutSetVolume(_passedAudio->audioPort, SCE_AUDIO_VOLUME_FLAG_L_CH |SCE_AUDIO_VOLUME_FLAG_R_CH, (int[]){_passedAudio->volume,_passedAudio->volume}); 
+			sceAudioOutSetVolume(_currentPort, SCE_AUDIO_VOLUME_FLAG_L_CH |SCE_AUDIO_VOLUME_FLAG_R_CH, (int[]){_passedAudio->volume,_passedAudio->volume});
 		}
 
+		SceUInt64 _startTicks = sceKernelGetProcessTimeWide();
 		// Start playing audio
-		sceAudioOutOutput(_passedAudio->audioPort, _passedAudio->audioBuffers[i]);
-
+		sceAudioOutOutput(_currentPort, _passedAudio->audioBuffers[i]);
+		
 		// Change buffer variable
 		++i;
+		// If the next buffer is out of bounds
 		if (i==_passedAudio->numBuffers){
 			if (_passedAudio->myStreamStatus>=STREAMSTATUS_DONTSTREAM){ // If we don't stream then we need to quit as we have no buffers left
 				_passedAudio->quitStatus = NAUDIO_QUITSTATUS_SHOULDQUIT;
@@ -335,27 +349,36 @@ int mlgsnd_soundPlayingThread(SceSize args, void *argp){
 			}
 		}
 		
-		if (_passedAudio->myStreamStatus == STREAMSTATUS_STREAMING){
+		// Stream audio data if we need to.
+		if (_passedAudio->myStreamStatus == STREAMSTATUS_STREAMING || _passedAudio->myStreamStatus == STREAMSTATUS_MINISTREAM){
 			// Start loading next audio into the other buffer while the current audio buffer is playing.
 			signed char _streamMoreResult = mlgsnd_loadMoreData(_passedAudio,i);
+			if (_passedAudio->myStreamStatus == STREAMSTATUS_MINISTREAM && i==_passedAudio->numBuffers-1){ // If we just loaded the last buffer.
+				_passedAudio->myStreamStatus = STREAMSTATUS_DONTSTREAM;
+			}
 			if (_streamMoreResult!=0){ // If error or end of file without looping
 				break; // Break out
 			}
 		}
 		
+
+		
 		// Wait for audio to finish playing in the remaining time
-		sceAudioOutOutput(_passedAudio->audioPort, NULL);
+		//sceAudioOutOutput(_currentPort, NULL);
+		//printf("%ld\n",(long)(sceKernelGetProcessTimeWide()-_startTicks));
 
 		// Check low priority triggers
 		_mlgsnd_waitWhilePaused(_passedAudio);
 	}
 
-	sceAudioOutOutput(_passedAudio->audioPort, NULL); // Wait for audio to finish playing
-	sceAudioOutReleasePort(_passedAudio->audioPort); // Release the port now that there's no audio
-	_passedAudio->audioPort=-1; // Reset port variable
-	_passedAudio->quitStatus = NAUDIO_QUITSTATUS_QUITTED; // Set quit before exiting
+	sceAudioOutOutput(_currentPort, NULL); // Wait for audio to finish playing
+	sceAudioOutReleasePort(_currentPort); // Release the port now that there's no audio
+	if (_passedAudio->audioPort==_currentPort){
+		_passedAudio->audioPort=-1; // Reset port variable
+	}
+	//_passedAudio->quitStatus = NAUDIO_QUITSTATUS_QUITTED; // Set quit before exiting
 	_passedAudio->playerThreadId=-1;
-	printf("Stopped by myself.\n");
+	--_passedAudio->totalPlaying;
 	sceKernelExitDeleteThread(0);
 	return 0;
 }
@@ -374,23 +397,6 @@ NathanAudio* _mlgsnd_loadAudio(char* filename, char _passedShouldLoop, char _pas
 	*((OggVorbis_File*)(_returnAudio->mainAudioStruct)) = myVorbisFile;
 	_returnAudio->fileFormat = FILE_FORMAT_OGG;
 	
-	// Init data for audio
-	_returnAudio->myStreamStatus = (_passedShouldStream ? STREAMSTATUS_STREAMING : STREAMSTATUS_DONTSTREAM);
-
-	// How many buffers we would need if we were streaming
-	_returnAudio->numBuffers = ceil(_mlgsnd_getLengthInSamples(_returnAudio)/(double)AUDIO_BUFFER_LENGTH);
-
-	// If we could fit our streaming sound in just our swap buffers then don't stream
-	if (_returnAudio->numBuffers<=STREAMING_BUFFERS){
-		printf("Dont stream.\n");
-		_returnAudio->myStreamStatus=STREAMSTATUS_DONTSTREAM;
-	}
-	// Change the numBuffers variable if we're streaming
-	if (_returnAudio->myStreamStatus==STREAMSTATUS_STREAMING){ // We are actually streaming
-		_returnAudio->numBuffers=STREAMING_BUFFERS;
-	}else{
-		// We're not streaming, don't change the numBuffers variable
-	}
 	_returnAudio->quitStatus=NAUDIO_QUITSTATUS_PREPARING;
 	_returnAudio->isFadingOut=0;
 	_returnAudio->volume = SCE_AUDIO_OUT_MAX_VOL; // SCE_AUDIO_OUT_MAX_VOL is actually max volume, not 0 decibels.
@@ -399,6 +405,7 @@ NathanAudio* _mlgsnd_loadAudio(char* filename, char _passedShouldLoop, char _pas
 	_returnAudio->playerThreadId=-1;
 	_returnAudio->audioPort=-1;
 	_returnAudio->isFirstTime=1;
+	_returnAudio->totalPlaying=0;
 	
 	// Setup sample rate ratios
 	double _oldRateToNewRateRatio = (double)mlgsnd_getSampleRate(_returnAudio)/48000;
@@ -423,16 +430,35 @@ NathanAudio* _mlgsnd_loadAudio(char* filename, char _passedShouldLoop, char _pas
 		printf("%s\n",src_strerror(lastConverterError)); // Bad converter number
 	}
 
+	// Init data for audio
+	_returnAudio->myStreamStatus = (_passedShouldStream ? STREAMSTATUS_STREAMING : STREAMSTATUS_DONTSTREAM);
+
+	// How many buffers we would need if we were streaming
+	_returnAudio->numBuffers = ceil((_mlgsnd_getLengthInSamples(_returnAudio)*_returnAudio->usualConverterData.src_ratio)/(double)AUDIO_BUFFER_LENGTH);
+
+	// If we could fit our streaming sound in just our swap buffers then don't stream
+	if (_returnAudio->numBuffers<=STREAMING_BUFFERS){
+		_returnAudio->myStreamStatus=STREAMSTATUS_MINISTREAM;
+	}else if (_returnAudio->numBuffers==1){
+		_returnAudio->myStreamStatus=STREAMSTATUS_DONTSTREAM;
+	}
+	// Change the numBuffers variable if we're streaming
+	if (_returnAudio->myStreamStatus==STREAMSTATUS_STREAMING){ // We are actually streaming
+		_returnAudio->numBuffers=STREAMING_BUFFERS;
+	}else{
+		// We're not streaming, don't change the numBuffers variable
+	}
+
 	// Malloc audio buffers depending on if we want streaming or not
 	_returnAudio->audioBuffers = malloc(sizeof(void*)*_returnAudio->numBuffers); // Array
 	int i;
 	for (i=0;i<_returnAudio->numBuffers;i++){
 		_returnAudio->audioBuffers[i] = malloc(mlgsnd_getBufferSize(_returnAudio,_returnAudio->scaledSamples,sizeof(short))); // The array elements, the audio buffers	
 	}
-	
+
 	// Fill a certian amount of audio buffers depending on if we want streaming or not
-	if (_returnAudio->myStreamStatus==STREAMSTATUS_STREAMING){ // Fill one buffer
-		mlgsnd_loadMoreData(_returnAudio,0);
+	if (_returnAudio->myStreamStatus==STREAMSTATUS_STREAMING || _returnAudio->myStreamStatus==STREAMSTATUS_MINISTREAM){ // Fill one buffer
+		mlgsnd_loadMoreData(_returnAudio,0); // TODO - CRASH!
 	}else if (_returnAudio->myStreamStatus==STREAMSTATUS_DONTSTREAM){ // Fill all buffers
 		short i;
 		for (i=0;i<_returnAudio->numBuffers;i++){
@@ -442,7 +468,6 @@ NathanAudio* _mlgsnd_loadAudio(char* filename, char _passedShouldLoop, char _pas
 		printf("error.\n");
 	}
 	
-
 	return _returnAudio;
 }
 
@@ -466,18 +491,16 @@ char _mlgsnd_initPort(NathanAudio* _passedAudio){
 	return 1;
 }
 void mlgsnd_play(NathanAudio* _passedAudio){
-	if (_passedAudio->playerThreadId!=-1){
-		printf("need to stop.\n");
-		mlgsnd_stopMusic(_passedAudio);
-	}
 	// We may need to rewind if we're streaming and this isn't our first time because buffers and file positions change.
-	if (_passedAudio->myStreamStatus == STREAMSTATUS_STREAMING && !_passedAudio->isFirstTime){
+	if ((_passedAudio->myStreamStatus == STREAMSTATUS_STREAMING) && !_passedAudio->isFirstTime){
+		if (_passedAudio->totalPlaying!=0){ // If we stream then we write to buffers then we can't have two threads reading from the same buffer, wait for stop.
+			mlgsnd_stopMusic(_passedAudio);
+		}
 		printf("Need to rewind\n");
 		// If this is our second time playing this audio
 		mlgsnd_restartAudio(_passedAudio);
 	}
 	if (_passedAudio->isFirstTime){
-		printf("Change first time variable.\n");
 		_passedAudio->isFirstTime=0;
 	}
 	// Initialize audio ports and such
@@ -489,95 +512,63 @@ void mlgsnd_play(NathanAudio* _passedAudio){
 	// Initialize sound playing thread, but don't start it.
 	SceUID mySoundPlayingThreadID = sceKernelCreateThread("SOUNDPLAY", mlgsnd_soundPlayingThread, 0, 0x10000, 0, 0, NULL);
 	_passedAudio->playerThreadId = mySoundPlayingThreadID;
+
+	void** _newArgs = malloc(sizeof(void*)*2);
+	_newArgs[0]=_passedAudio;
+	_newArgs[1]=(void*)(_passedAudio->audioPort);
+
 	// Set this flag as late as possible
 	_passedAudio->quitStatus = NAUDIO_QUITSTATUS_PLAYING;
+
 	// Start sound thread
-	sceKernelStartThread(_passedAudio->playerThreadId,sizeof(NathanAudio*),&_passedAudio);
+	sceKernelStartThread(_passedAudio->playerThreadId,sizeof(void**),&_newArgs);
 }
 #if INCLUDETESTCODE==1
 int main(void) {
 	psvDebugScreenInit();
 
-	if (sizeof(float)!=4 || sizeof(short)!=2){
+	if (sizeof(float)!=4 || sizeof(short)!=2 || (sizeof(int)>sizeof(void*))){
 		printf("Type sizes wrong, f;d, %d;%d\n",sizeof(float),sizeof(short));
 	}
 
-	//NathanAudio* _bgmTest = mlgsnd_loadMusic("ux0:data/SOUNDTEST/dppbattlemono.ogg");
-	//mlgsnd_setVolume(_bgmTest,30);
-	//mlgsnd_play(_bgmTest);
+	NathanAudio* _theGoodBGM = mlgsnd_loadMusic("ux0:data/SOUNDTEST/dppbattlemono.ogg");
+	mlgsnd_setVolume(_theGoodBGM,50);
+	mlgsnd_play(_theGoodBGM);
 
-	NathanAudio* myHappyAudio;
-	//printf("Start tryna load music.\n");
-	
-	////NathanAudio* myHappyAudio2 = loadMusic("ux0:data/SOUNDTEST/dppbattlemono.ogg",0);
-	//printf("Okay, start playing.\n");
-	
-	//nathanAudioPlay(myHappyAudio2);
+	//NathanAudio* _theGoodBGM2 = mlgsnd_loadMusic("ux0:data/SOUNDTEST/as.ogg");
+	//mlgsnd_setVolume(_theGoodBGM2,50);
+	//mlgsnd_play(_theGoodBGM2);
+//
+	//NathanAudio* _theGoodBGM3 = mlgsnd_loadMusic("ux0:data/SOUNDTEST/as.ogg");
+	//mlgsnd_setVolume(_theGoodBGM3,50);
+	//mlgsnd_play(_theGoodBGM3);
 
-	myHappyAudio = _mlgsnd_loadAudio("ux0:data/SOUNDTEST/wa_038.ogg",0,1);
-	mlgsnd_setVolume(myHappyAudio,128);
-	//printf("is played.\n");
-	mlgsnd_play(myHappyAudio);
-	//sceKernelDelayThread(500);
-	//mlgsnd_freeMusic(myHappyAudio);
-	//printf("was freed\n");
+	NathanAudio* _lastSoundEffect=NULL;
+	char* _firstPossibleSound="ux0:data/SOUNDTEST/rikatest.ogg";
+	char* _secondPossibleSound="ux0:data/SOUNDTEST/battlerika.ogg";
 
-	//myHappyAudio = mlgsnd_loadSound("ux0:data/SOUNDTEST/otherlengthuntitled.ogg");
-	//mlgsnd_setVolume(myHappyAudio,128);
-	//mlgsnd_play(myHappyAudio);
+	char* _newSoundToPlay=_firstPossibleSound;
 
-	//int i;
-
-	//for (i=0;;++i){
-	//	printf("Try %d\n",i);
-	//	FILE* fp;
-	//	fp = fopen("ux0:data/SOUNDTEST/olda.ogg","r");
-	//	if (fp==NULL){
-	//		printf("Failed.\n");
-	//	}
-	//	fclose(fp);
-	//}
-
-	//NathanAudio* myHappyAudio2;
-	
-	//for (i=0;;++i){ // Fails starting on and after 272nd try. (273rd try on another attempt)
-	//	if (i>250){
-	//		printf("Try %d\n",i);
-	//	}
-	//	myHappyAudio2 = mlgsnd_loadMusic("ux0:data/SOUNDTEST/olda.ogg",1);
-	//	mlgsnd_play(myHappyAudio2);
-	//	mlgsnd_stopMusic(myHappyAudio2);
-	//	mlgsnd_freeMusic(myHappyAudio2);
-	//}
 	printf("X-Stop\nO-Free\nSquare-Pause\nTrinalge-Fadeout\nUp - play");
 	while (1){
 		
 		SceCtrlData ctrl;
 		sceCtrlPeekBufferPositive(0, &ctrl, 1);
 		if ((ctrl.buttons & SCE_CTRL_UP) && !(lastCtrl.buttons & SCE_CTRL_UP)){
-			printf("play music\n");
-			mlgsnd_play(myHappyAudio);
-		}
-		if ((ctrl.buttons & SCE_CTRL_CROSS) && !(lastCtrl.buttons & SCE_CTRL_CROSS)){
-			printf("Stop music\n");
-			mlgsnd_stopMusic(myHappyAudio);
-		}
-		if ((ctrl.buttons & SCE_CTRL_CIRCLE) && !(lastCtrl.buttons & SCE_CTRL_CIRCLE)){
-			printf("free music\n");
-			mlgsnd_freeMusic(myHappyAudio);
-		}
-		if ((ctrl.buttons & SCE_CTRL_SQUARE) && !(lastCtrl.buttons & SCE_CTRL_SQUARE)){
-			printf("toggle pause");
-			if (myHappyAudio->quitStatus == NAUDIO_QUITSTATUS_PAUSED){
-				myHappyAudio->quitStatus = NAUDIO_QUITSTATUS_PLAYING;
-			}else{
-				myHappyAudio->quitStatus = NAUDIO_QUITSTATUS_PAUSED;
+			printf("play sound %p\n",_newSoundToPlay);
+			if (_lastSoundEffect!=NULL){
+				mlgsnd_freeMusic(_lastSoundEffect);
 			}
+			_lastSoundEffect = _mlgsnd_loadAudio(_newSoundToPlay,0,1);
+			mlgsnd_setVolume(_lastSoundEffect,100);
+			mlgsnd_play(_lastSoundEffect);
+			//if (_newSoundToPlay==_firstPossibleSound){
+			//	_newSoundToPlay = _secondPossibleSound;
+			//}else{
+			//	_newSoundToPlay = _firstPossibleSound;
+			//}
 		}
-		if ((ctrl.buttons & SCE_CTRL_TRIANGLE) && !(lastCtrl.buttons & SCE_CTRL_TRIANGLE)){
-			printf("fadeout");
-			mlgsnd_fadeoutMusic(myHappyAudio,5000);
-		}
+		
 		lastCtrl = ctrl;
 	
 		sceKernelDelayThread(10000);

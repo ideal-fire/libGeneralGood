@@ -4,9 +4,6 @@
 	#if DOFIXCOORDS == 1
 		int fixX(int x);
 		int fixY(int y);
-	#endif
-
-	#if DOFIXCOORDS == 1
 		void FixCoords(int* _x, int* _y){
 			*_x = fixX(*_x);
 			*_y = fixY(*_y);
