@@ -30,8 +30,9 @@
 	
 	// Required to fix touchscreen coords
 	#if PLATFORM == PLAT_COMPUTER
-		extern int screenWidth;
-		extern int screenHeight;
+		// These are defined for you if you're using libGeneralGood
+		extern int _generalGoodRealScreenWidth;
+		extern int _generalGoodRealScreenHeight;
 	#endif
 
 	#include <stdio.h>
@@ -245,8 +246,8 @@
 				}
 				
 				if( e.type == SDL_FINGERDOWN || (pad[SCE_TOUCH]==1 && e.type == SDL_FINGERMOTION)){
-					touchX = e.tfinger.x * screenWidth;
-					touchY = e.tfinger.y * screenHeight;
+					touchX = e.tfinger.x * _generalGoodRealScreenWidth;
+					touchY = e.tfinger.y * _generalGoodRealScreenHeight;
 					pad[SCE_TOUCH]=1;
 				}else if (e.type == SDL_MOUSEBUTTONDOWN || (pad[SCE_TOUCH]==1 && e.type == SDL_MOUSEMOTION) ){
 					SDL_GetMouseState(&touchX,&touchY);

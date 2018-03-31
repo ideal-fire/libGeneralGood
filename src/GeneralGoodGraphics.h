@@ -1,6 +1,8 @@
 #ifndef GENERALGOODGRAPHICSHEADER
 #define GENERALGOODGRAPHICSHEADER
 
+	#define WINDOWNAME "HappyWindo"
+
 	#if DOFIXCOORDS == 1
 		int fixX(int x);
 		int fixY(int y);
@@ -34,6 +36,11 @@
 		#include <3ds/svc.h>
 	#endif
 
+	// Used to fix touch coords on Android.
+	// Init with dummy values in case used in division
+	int _generalGoodRealScreenWidth=1;
+	int _generalGoodRealScreenHeight=1;
+
 	// _windowWidth and _windowHeight are recommendations for the Window size. Will be ignored on Android, Vita, etc.
 	void initGraphics(int _windowWidth, int _windowHeight, int* _storeWindowWidth, int* _storeWindowHeight){
 		#if RENDERER == REND_SDL
@@ -42,14 +49,19 @@
 			#if SUBPLATFORM == SUB_ANDROID
 				SDL_DisplayMode displayMode;
 				if( SDL_GetCurrentDisplayMode( 0, &displayMode ) == 0 ){
-					mainWindow = SDL_CreateWindow( "HappyWindo", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, displayMode.w, displayMode.h, SDL_WINDOW_SHOWN );
+					mainWindow = SDL_CreateWindow( WINDOWNAME, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, displayMode.w, displayMode.h, SDL_WINDOW_SHOWN );
 				}else{
 					printf("Failed to get display mode....\n");
 				}
 				*_storeWindowWidth=displayMode.w;
 				*_storeWindowHeight=displayMode.h;
 			#else
-				mainWindow = SDL_CreateWindow( "HappyWindo", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, _windowWidth, _windowHeight, SDL_WINDOW_SHOWN );
+				if (*_storeWindowWidth!=0 && *_storeWindowHeight!=0){
+					printf("Using actual window size %dx%d\n",*_storeWindowWidth,*_storeWindowHeight);
+					_windowWidth=*_storeWindowWidth;
+					_windowHeight=*_storeWindowHeight;
+				}
+				mainWindow = SDL_CreateWindow( WINDOWNAME, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, _windowWidth, _windowHeight, SDL_WINDOW_SHOWN );
 				*_storeWindowWidth=_windowWidth;
 				*_storeWindowHeight=_windowHeight;
 				showErrorIfNull(mainWindow);
@@ -81,6 +93,8 @@
 		#else
 			#error Hi, Nathan here. I have to make graphics init function for this renderer. RENDERER
 		#endif
+		_generalGoodRealScreenWidth=*_storeWindowWidth;
+		_generalGoodRealScreenHeight=*_storeWindowHeight;
 	}
 
 	void startDrawing(){

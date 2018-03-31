@@ -32,6 +32,7 @@
 //65472 is SCE_AUDIO_MAX_LEN
 // 32000 is good
 // 19200 is probably good
+// 9600
 // 4800 is godo for fadeout
 #define AUDIO_BUFFER_LENGTH 4800
 
@@ -368,7 +369,7 @@ int mlgsnd_soundPlayingThread(SceSize args, void *argp){
 		_mlgsnd_waitWhilePaused(_passedAudio);
 	}
 
-	sceAudioOutOutput(_currentPort, NULL); // Wait for audio to finish playing
+	//sceAudioOutOutput(_currentPort, NULL); // Wait for audio to finish playing
 	sceAudioOutReleasePort(_currentPort); // Release the port now that there's no audio
 	if (_passedAudio->audioPort==_currentPort){
 		_passedAudio->audioPort=-1; // Reset port variable
@@ -455,7 +456,7 @@ NathanAudio* _mlgsnd_loadAudio(char* filename, char _passedShouldLoop, char _pas
 
 	// Fill a certian amount of audio buffers depending on if we want streaming or not
 	if (_returnAudio->myStreamStatus==STREAMSTATUS_STREAMING || _returnAudio->myStreamStatus==STREAMSTATUS_MINISTREAM){ // Fill one buffer
-		mlgsnd_loadMoreData(_returnAudio,0); // TODO - CRASH!
+		mlgsnd_loadMoreData(_returnAudio,0);
 	}else if (_returnAudio->myStreamStatus==STREAMSTATUS_DONTSTREAM){ // Fill all buffers
 		short i;
 		for (i=0;i<_returnAudio->numBuffers;i++){
@@ -493,9 +494,10 @@ void mlgsnd_play(NathanAudio* _passedAudio){
 		if (_passedAudio->totalPlaying!=0){ // If we stream then we write to buffers then we can't have two threads reading from the same buffer, wait for stop.
 			mlgsnd_stopMusic(_passedAudio);
 		}
-		printf("Need to rewind\n");
 		// If this is our second time playing this audio
 		mlgsnd_restartAudio(_passedAudio);
+		// Reload first buffer
+		mlgsnd_loadMoreData(_passedAudio,0);
 	}
 	if (_passedAudio->isFirstTime){
 		_passedAudio->isFirstTime=0;
@@ -541,8 +543,11 @@ int main(void) {
 	//mlgsnd_play(_theGoodBGM3);
 
 	NathanAudio* _lastSoundEffect=NULL;
-	char* _firstPossibleSound="ux0:data/SOUNDTEST/rikatest.ogg";
-	char* _secondPossibleSound="ux0:data/SOUNDTEST/battlerika.ogg";
+	char* _firstPossibleSound="ux0:data/SOUNDTEST/keibet.ogg";
+	char* _secondPossibleSound="ux0:data/SOUNDTEST/keiolder.ogg";
+
+	//s20/01/440100006
+	//s20/01/440100008
 
 	char* _newSoundToPlay=_firstPossibleSound;
 
@@ -559,11 +564,11 @@ int main(void) {
 			_lastSoundEffect = _mlgsnd_loadAudio(_newSoundToPlay,0,1);
 			mlgsnd_setVolume(_lastSoundEffect,100);
 			mlgsnd_play(_lastSoundEffect);
-			//if (_newSoundToPlay==_firstPossibleSound){
-			//	_newSoundToPlay = _secondPossibleSound;
-			//}else{
-			//	_newSoundToPlay = _firstPossibleSound;
-			//}
+			if (_newSoundToPlay==_firstPossibleSound){
+				_newSoundToPlay = _secondPossibleSound;
+			}else{
+				_newSoundToPlay = _firstPossibleSound;
+			}
 		}
 		
 		lastCtrl = ctrl;
