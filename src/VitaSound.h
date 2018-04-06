@@ -19,6 +19,8 @@
 #include <stdint.h>
 #include <math.h>
 #include <stdlib.h>
+// memset and memcpy
+#include <string.h>
 
 #include <psp2/ctrl.h>
 #include <psp2/audioout.h>
@@ -31,6 +33,11 @@
 
 #include <samplerate.h>
 
+#if INCLUDETESTCODE
+	#include "debugScreen.h"
+	#define printf psvDebugScreenPrintf
+#endif
+
 // Works best with small buffers
 // 65472 is SCE_AUDIO_MAX_LEN
 // 32000 is good
@@ -38,6 +45,9 @@
 // 9600
 // 4800 is godo for fadeout
 #define AUDIO_BUFFER_LENGTH 4800
+
+// Best be even to avoid OV_EINVAL
+#define BIGBUFFERSCALE 1.30
 
 // SRC_SINC_MEDIUM_QUALITY
 // SRC_SINC_FASTEST
@@ -186,19 +196,6 @@ unsigned int mlgsnd_getFadeoutPerSwap(unsigned int _fadeoutTime, unsigned int _s
 	// _fadeoutTime * (AUDIO_BUFFER_LENGTH/48000) - Correct time between swaps
 	return (unsigned int)(_startVolume/(_fadeoutTime / ((AUDIO_BUFFER_LENGTH/(double)48000)*1000)));
 }
-#ifndef PLATFORM
-void mlgsnd_waitForCross(){
-	while (1){
-		SceCtrlData ctrl;
-		sceCtrlPeekBufferPositive(0, &ctrl, 1);
-		if ((ctrl.buttons & SCE_CTRL_CROSS) && !(lastCtrl.buttons & SCE_CTRL_CROSS)){
-			lastCtrl = ctrl;
-			break;
-		}
-		lastCtrl = ctrl;
-	}
-}
-#endif
 
 int mlgsnd_getNumChannels(NathanAudio* _passedMusic){
 	if (_passedMusic->fileFormat==FILE_FORMAT_OGG){
@@ -217,26 +214,49 @@ long mlgsnd_getSampleRate(NathanAudio* _passedMusic){
 		return 0;
 	}
 }
-
 long mlgsnd_getBufferSize(NathanAudio* _passedAudio, unsigned int _numberOfSamples, char _sizeOfUint){
 	return _numberOfSamples*_sizeOfUint*mlgsnd_getNumChannels(_passedAudio);
 }
+// Raw audio data stored as short
 long mlgsnd_getShortSourceSize(NathanAudio* _passedAudio){
 	return mlgsnd_getBufferSize(_passedAudio,_passedAudio->unscaledSamples,sizeof(short));
 }
+// Raw audio data stored as float
 long mlgsnd_getFloatSourceSize(NathanAudio* _passedAudio){
 	return mlgsnd_getBufferSize(_passedAudio,_passedAudio->unscaledSamples,sizeof(float));
 }
+// Converted audio data stored as float
 long mlgsnd_getFloatDestSize(NathanAudio* _passedAudio){
 	return mlgsnd_getBufferSize(_passedAudio,_passedAudio->scaledSamples,sizeof(float));
 }
-long mlgsnd_getShortDestSize(NathanAudio* _passedAudio){
+// Do not use directly, use mlgsnd_getShortSrcDestSize
+// Converted audio data stored as short
+long __mlgsnd_getShortDestSize(NathanAudio* _passedAudio){
 	return mlgsnd_getBufferSize(_passedAudio,_passedAudio->scaledSamples,sizeof(short));
+}
+// Get a buffer size that can hold short data before or after it's converted
+long mlgsnd_getShortSrcDestSize(NathanAudio* _passedAudio){
+	if (_passedAudio->scaledSamples>_passedAudio->unscaledSamples){ // If we upscale
+		//printf("")
+		return __mlgsnd_getShortDestSize(_passedAudio);
+	}else{ // We downscale
+		
+		return mlgsnd_getShortSourceSize(_passedAudio);
+	}
+}
+// Should be the size of the first buffer. This will get 125% of a short source buffer if it's bigger than the short dest buffer
+long mlgsnd_getBigShortSrcDestSize(NathanAudio* _passedAudio){
+	long _possibleBufferSizeOne = mlgsnd_getShortSourceSize(_passedAudio)*BIGBUFFERSCALE;
+	long _possibleBufferSizeTwo = __mlgsnd_getShortDestSize(_passedAudio);
+	return (_possibleBufferSizeOne > _possibleBufferSizeTwo ? _possibleBufferSizeOne : _possibleBufferSizeTwo);
+}
+long mlgsnd_getBigFloatSrcSize(NathanAudio* _passedAudio){
+	return mlgsnd_getFloatSourceSize(_passedAudio)*BIGBUFFERSCALE;
 }
 
 #if !defined(PLATFORM)
-SceUInt64 getTicks(){
-	return  (sceKernelGetProcessTimeWide());
+int getTicks(){
+	return  (sceKernelGetProcessTimeWide()/1000);
 }
 #endif
 
@@ -272,7 +292,7 @@ signed char mlgsnd_readOGGData(OggVorbis_File* _fileToReadFrom, char* _destinati
 			}else if(ret==OV_EBADLINK){
 				printf("OV_EBADLINK\n");
 			}else if (ret==OV_EINVAL){
-				printf("OV_EINVAL\n");
+				printf("OV_EINVAL with %d bytes left\n",_bytesLeftInBuffer);
 			}
 			return 2;
 		} else {
@@ -342,15 +362,6 @@ void mlgsnd_freeMusic(NathanAudio* _passedAudio){
 	free(_passedAudio);
 }
 
-unsigned int _mlgsnd_getInitSamples(unsigned int _usualNumberOfSamples){
-	return _usualNumberOfSamples+((double)_usualNumberOfSamples/4);
-}
-
-// usual sample count plus one fourth of that sample count
-long mlgsnd_getInitBufferSize(NathanAudio* _passedAudio, unsigned int _usualNumberOfSamples, char _sizeOfUint){
-	_usualNumberOfSamples = _mlgsnd_getInitSamples(_usualNumberOfSamples);
-	return (mlgsnd_getNumChannels(_passedAudio)==1 ? _usualNumberOfSamples*_sizeOfUint : _usualNumberOfSamples*_sizeOfUint*2);
-}
 
 // Returns NOT 0 if audio is done playing or error, 0 otherwise
 signed char _mlgsnd_loadUnprocessedData(signed char _passedFormat, void* mainAudioStruct, char* _destinationBuffer, int _totalBufferSize, char _passedShouldLoop){
@@ -380,8 +391,10 @@ void _mlgsnd_processData(SRC_STATE* _passedConverter, SRC_DATA* _passedConverter
 	src_float_to_short_array(_floatBufferTempDest,_shortBuffer,_longBufferSamples*_numChannels);
 }
 
-signed int mlgsnd_loadMoreData(NathanAudio* _passedAudio, unsigned char _audioBufferSlot){
-	signed char _possibleReturnValue = _mlgsnd_loadUnprocessedData(_passedAudio->fileFormat,_passedAudio->mainAudioStruct, &(((char**)_passedAudio->audioBuffers)[_audioBufferSlot][_passedAudio->nextBufferLoadOffset]),mlgsnd_getShortSourceSize(_passedAudio)-_passedAudio->nextBufferLoadOffset,_passedAudio->shouldLoop);
+// samples is _passedAudio->unscaledSamples
+// bytes is mlgsnd_getShortSourceSize(_passedAudio)
+signed int mlgsnd_loadMoreData(NathanAudio* _passedAudio, unsigned char _audioBufferSlot, unsigned int _passedSamples, unsigned int _passedSourceBufferSize){
+	signed char _possibleReturnValue = _mlgsnd_loadUnprocessedData(_passedAudio->fileFormat,_passedAudio->mainAudioStruct, &(((char**)_passedAudio->audioBuffers)[_audioBufferSlot][_passedAudio->nextBufferLoadOffset]),_passedSourceBufferSize-_passedAudio->nextBufferLoadOffset,_passedAudio->shouldLoop);
 	_passedAudio->nextBufferLoadOffset=0;
 	if (_possibleReturnValue!=0){
 		return -1;
@@ -391,11 +404,11 @@ signed int mlgsnd_loadMoreData(NathanAudio* _passedAudio, unsigned char _audioBu
 	_passedAudio->usualConverterData.data_in = _passedAudio->tempFloatSource;
 	_passedAudio->usualConverterData.data_out = _passedAudio->tempFloatConverted;
 	// Keep these as is, secret rabbit code already accounts for channels. Stolen code: data->data_in + data->input_frames * psrc->channels
-	_passedAudio->usualConverterData.input_frames = _passedAudio->unscaledSamples;
+	_passedAudio->usualConverterData.input_frames = _passedSamples;
 	_passedAudio->usualConverterData.output_frames = _passedAudio->scaledSamples;
 
 	// Change our loaded short data into loaded float data
-	src_short_to_float_array(_passedAudio->audioBuffers[_audioBufferSlot],_passedAudio->tempFloatSource,_passedAudio->unscaledSamples*mlgsnd_getNumChannels(_passedAudio));
+	src_short_to_float_array(_passedAudio->audioBuffers[_audioBufferSlot],_passedAudio->tempFloatSource,_passedSamples*mlgsnd_getNumChannels(_passedAudio));
 	// Convert loaded float data into converted float data with proper sample rate in temp buffer
 	int _possibleErrorCode = src_process(_passedAudio->personalConverter,&(_passedAudio->usualConverterData));
 	if (_possibleErrorCode!=0){
@@ -403,10 +416,15 @@ signed int mlgsnd_loadMoreData(NathanAudio* _passedAudio, unsigned char _audioBu
 	}
 
 	// Save unused samples
-	if (_passedAudio->unscaledSamples>_passedAudio->usualConverterData.input_frames_used && _passedAudio->numBuffers!=1 ){
+	if (_passedSamples>_passedAudio->usualConverterData.input_frames_used && _passedAudio->numBuffers!=1 ){
 		signed char _nextBuffer = mlgsnd_getNextBufferIndex(_passedAudio,_audioBufferSlot);
-		_passedAudio->nextBufferLoadOffset = (_passedAudio->unscaledSamples-_passedAudio->usualConverterData.input_frames_used)*sizeof(short)*mlgsnd_getNumChannels(_passedAudio);
-		memcpy( _passedAudio->audioBuffers[_nextBuffer], &(((char**)_passedAudio->audioBuffers)[_audioBufferSlot][mlgsnd_getShortSourceSize(_passedAudio)-_passedAudio->nextBufferLoadOffset]), _passedAudio->nextBufferLoadOffset );
+		signed int _possibleNextLoadOffset = (_passedSamples-_passedAudio->usualConverterData.input_frames_used)*sizeof(short)*mlgsnd_getNumChannels(_passedAudio);
+		if (_possibleNextLoadOffset>_passedSourceBufferSize){
+			printf("too much data unused, so the only logical thing to do is discard it all\n");
+		}else{
+			_passedAudio->nextBufferLoadOffset = _possibleNextLoadOffset;
+			memcpy( _passedAudio->audioBuffers[_nextBuffer], &(((char**)_passedAudio->audioBuffers)[_audioBufferSlot][_passedSourceBufferSize-_passedAudio->nextBufferLoadOffset]), _passedAudio->nextBufferLoadOffset );
+		}
 	}
 
 	// Change converted float data in temp buffer to short data with proper sample rate in proper buffer
@@ -484,7 +502,7 @@ int mlgsnd_soundPlayingThread(SceSize args, void *argp){
 		// Stream audio data if we need to.
 		if (_passedAudio->myStreamStatus == STREAMSTATUS_STREAMING || _passedAudio->myStreamStatus == STREAMSTATUS_MINISTREAM){
 			// Start loading next audio into the other buffer while the current audio buffer is playing.
-			signed char _loadMoreResult = mlgsnd_loadMoreData(_passedAudio,i);
+			signed char _loadMoreResult = mlgsnd_loadMoreData(_passedAudio,i,_passedAudio->unscaledSamples,mlgsnd_getShortSourceSize(_passedAudio));
 			if (_passedAudio->myStreamStatus == STREAMSTATUS_MINISTREAM && i==_passedAudio->numBuffers-1){ // If we just loaded the last buffer.
 				_passedAudio->myStreamStatus = STREAMSTATUS_DONTSTREAM;
 			}
@@ -544,7 +562,7 @@ NathanAudio* _mlgsnd_loadAudio(char* filename, char _passedShouldLoop, char _pas
 	_returnAudio->scaledSamples = AUDIO_BUFFER_LENGTH;
 	
 	// Malloc temp buffers
-	_returnAudio->tempFloatSource = malloc(mlgsnd_getInitBufferSize(_returnAudio,_returnAudio->unscaledSamples,sizeof(float)));  // Also needs to be able to hold big first buffer as float data
+	_returnAudio->tempFloatSource = malloc(mlgsnd_getBigFloatSrcSize(_returnAudio));  // Also needs to be able to hold big first buffer as float data
 	_returnAudio->tempFloatConverted = malloc(mlgsnd_getFloatDestSize(_returnAudio));
 	
 	// Init converter object data argument now that temp buffer exists
@@ -583,23 +601,36 @@ NathanAudio* _mlgsnd_loadAudio(char* filename, char _passedShouldLoop, char _pas
 	// Malloc audio buffers depending on if we want streaming or not
 	_returnAudio->audioBuffers = malloc(sizeof(void*)*_returnAudio->numBuffers); // Array
 	// First buffer exception
-	_returnAudio->audioBuffers[0] = malloc(mlgsnd_getInitBufferSize(_returnAudio,_returnAudio->scaledSamples,sizeof(short))); // Needs to be able to hold the 125% unscaled and 100% scaled. TODO - We can't know which one is bigger.
+	_returnAudio->audioBuffers[0] = malloc(mlgsnd_getBigShortSrcDestSize(_returnAudio)); // Needs to be able to hold the 125% unscaled and 100% scaled. TODO - We can't know which one is bigger.
 	// Normal buffers
 	int i;
 	for (i=1;i<_returnAudio->numBuffers;i++){
-		_returnAudio->audioBuffers[i] = malloc(mlgsnd_getShortDestSize(_returnAudio)); // The array elements, the audio buffers
+		_returnAudio->audioBuffers[i] = malloc(mlgsnd_getShortSrcDestSize(_returnAudio)); // The array elements, the audio buffers
 	}
-
-	mlgsnd_loadMoreData(_returnAudio,0);
+	////mlgsnd_loadMoreData(_returnAudio,0);
+	//// No matter what, we'll need the first buffer.
+	//// Special code to load the first buffer
+	//_mlgsnd_loadUnprocessedData(_returnAudio->fileFormat,_returnAudio->mainAudioStruct,_returnAudio->audioBuffers[0],mlgsnd_getInitBufferSize(_returnAudio,_returnAudio->unscaledSamples,sizeof(short)),1); // Always loop for now.
+	////void _mlgsnd_processData(SRC_STATE* _passedConverter, SRC_DATA* _passedConverterData, short* _shortBuffer, float* _floatBufferTempSource, float* _floatBufferTempDest, unsigned int _smallBufferSamples, unsigned int _longBufferSamples){
+	//_mlgsnd_processData(_returnAudio->personalConverter,&(_returnAudio->usualConverterData),_returnAudio->audioBuffers[0],_returnAudio->tempFloatSource,_returnAudio->tempFloatConverted,_mlgsnd_getInitSamples(_returnAudio->unscaledSamples),_returnAudio->scaledSamples,mlgsnd_getNumChannels(_returnAudio));
+	//if (_returnAudio->usualConverterData.output_frames_gen!=AUDIO_BUFFER_LENGTH){
+	//	printf("will pop.\n");
+	//}
+	//// No idea why this is never called. I guess everything just turns out okay?
+	//if (_returnAudio->usualConverterData.input_frames_used!=_mlgsnd_getInitSamples(_returnAudio->unscaledSamples)){ // If we loaded too much
+	//	printf("seek %d\n",-1*(_mlgsnd_getInitSamples(_returnAudio->unscaledSamples)-_returnAudio->usualConverterData.input_frames_used));
+	//	mlgsnd_seekSamplesRelative(_returnAudio,-1*(_mlgsnd_getInitSamples(_returnAudio->unscaledSamples)-_returnAudio->usualConverterData.input_frames_used));
+	//}
+	mlgsnd_loadMoreData(_returnAudio,0,_returnAudio->unscaledSamples*BIGBUFFERSCALE,mlgsnd_getBigShortSrcDestSize(_returnAudio));
 
 	// Fill more buffers depending on if we want streaming or not
 	if (_returnAudio->myStreamStatus==STREAMSTATUS_DONTSTREAM){ // Fill all buffers
 		short i;
 		for (i=1;i<_returnAudio->numBuffers;i++){
-			mlgsnd_loadMoreData(_returnAudio,i);
+			mlgsnd_loadMoreData(_returnAudio,i,_returnAudio->unscaledSamples,mlgsnd_getShortSourceSize(_returnAudio));
 		}
 	}
-	
+
 	return _returnAudio;
 }
 
@@ -631,7 +662,7 @@ void mlgsnd_play(NathanAudio* _passedAudio){
 		// If this is our second time playing this audio
 		mlgsnd_restartAudio(_passedAudio);
 		// Reload first buffer
-		mlgsnd_loadMoreData(_passedAudio,0);
+		mlgsnd_loadMoreData(_passedAudio,0,_passedAudio->unscaledSamples,mlgsnd_getShortSourceSize(_passedAudio));
 	}
 
 	if (_passedAudio->isFirstTime){
@@ -659,8 +690,6 @@ void mlgsnd_play(NathanAudio* _passedAudio){
 }
 
 #if INCLUDETESTCODE==1
-#include "debugScreen.h"
-#define printf psvDebugScreenPrintf
 SceCtrlData lastCtrl;
 void printAudioDataStart(NathanAudio* _passedAudio, signed char _whichBuffer){
 	return;
@@ -687,7 +716,6 @@ int main(void) {
 	if (sizeof(float)!=4 || sizeof(short)!=2 || (sizeof(int)>sizeof(void*) || (sizeof(short)>sizeof(float)))){
 		printf("Type sizes wrong, f;d, %d;%d\n",sizeof(float),sizeof(short));
 	}
-
 	//NathanAudio* _theGoodBGM = mlgsnd_loadMusic("ux0:data/SOUNDTEST/dppbattlemono.ogg");
 	//mlgsnd_setVolume(_theGoodBGM,50);
 	//mlgsnd_play(_theGoodBGM);
@@ -766,7 +794,7 @@ int main(void) {
 
 		if (wasJustPressed(ctrl,SCE_CTRL_SELECT)){
 			mlgsnd_restartAudio(_lastSoundEffect);
-			printf("%d\n",mlgsnd_loadMoreData(_lastSoundEffect,0));
+			printf("%d\n",mlgsnd_loadMoreData(_lastSoundEffect,0,_lastSoundEffect->unscaledSamples,mlgsnd_getShortSourceSize(_lastSoundEffect)));
 			printAudioDataStart(_lastSoundEffect,0);
 		}
 
