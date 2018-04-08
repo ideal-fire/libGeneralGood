@@ -25,11 +25,13 @@
 #include <psp2/ctrl.h>
 #include <psp2/audioout.h>
 #include <psp2/kernel/processmgr.h>
+#include <psp2/kernel/threadmgr.h>
 
 #include <ogg/ogg.h>
 #include <vorbis/codec.h>
 #include <vorbis/vorbisfile.h>
-#include <psp2/kernel/threadmgr.h> 
+
+#include <mpg123.h>
 
 #include <samplerate.h>
 
@@ -51,18 +53,26 @@
 
 // SRC_SINC_MEDIUM_QUALITY
 // SRC_SINC_FASTEST
-#define SAMPLERATECONVERSIONQUALITY SRC_SINC_MEDIUM_QUALITY
+#define SAMPLERATECONVERSIONQUALITY SRC_SINC_FASTEST
 
+/*
+Format specific functions:
+
+_mlgsnd_getLengthInSamples
+mlgsnd_restartAudio
+mlgsnd_getNumChannels
+mlgsnd_getSampleRate
+_mlgsnd_disposeMusicMainStruct
+*/
 #define FILE_FORMAT_NONE 0
 #define FILE_FORMAT_OGG 1
+#define FILE_FORMAT_MP3 2
+// Planned
+#define FILE_FORMAT_WAV 2
 
 #define SHORT_SYNC_DELAY_MICRO 10000
 
 #define STREAMING_BUFFERS 3
-
-// Planned
-#define FILE_FORMAT_WAV 2
-#define FILE_FORMAT_MP3 3
 
 #define NAUDIO_QUITSTATUS_PLAYING 1
 #define NAUDIO_QUITSTATUS_SHOULDQUIT 2
@@ -110,6 +120,7 @@ typedef struct{
 	signed int lastVolume; // Used to detect volume changes
 }NathanAudio;
 int lastConverterError=0;
+signed char haveInitMpg123=0;
 
 //signed char nextLoadableSoundBuffer=1;
 //signed char lastLoadedSoundBuffer=1;
@@ -117,26 +128,9 @@ int lastConverterError=0;
 
 //int _debugFilterPort=0;
 
-// TODO - See what happens if I play Higurashi sounds in this test project. By that I mean start some BGM and let me play a bunch of DIFFERENT voice lines, each one needing to free the last one's memory because they're stored in the same variable.
 // TODO - libmpg123, use it.
 // TODO - Try downscaling high sample rate
 	// Pretty sure my 125% buffer system will break it.
-
-// TODO - To solve the audio popping issue, actually change stuff depending on input_frames_used.	
-	// Often not all the samples are used, so some data is skipped. This causes the pop.
-	// IDEA - Shove all my audio data in one big buffer. I can start loading from any position and load any amount. So say 200 less samples are used, I can start loading from 200 index and load the normal loading amount minus 200.
-		// Have a few things. (1) big buffer that is the size of two smaller buffers. (2) variable for position in buffer that I'm currently playing (3) variable for position in buffer I'm reading to.
-		
-		// What to do when not all input data is used:
-			/*
-				(Assuming buffer 0 has 300 samples not used)
-				Start playing buffer 1 at whatever offset
-				Copy from (buffer 2 start) - 300 to (buffer 0 start)
-				start loading in buffer position (buffe 0 start) + 300
-					load ((buffer 2 start - 300)/(sigle buffer length)) samples
-			*/
-	
-	// Take a look at this: https://stackoverflow.com/questions/1201319/what-is-the-difference-between-memmove-and-memcpy
 
 signed char mlgsnd_getNextBufferIndex(NathanAudio* _passedAudio, signed char _audioBufferSlot){
 	_audioBufferSlot++;
@@ -149,6 +143,8 @@ signed char mlgsnd_getNextBufferIndex(NathanAudio* _passedAudio, signed char _au
 int64_t _mlgsnd_getLengthInSamples(NathanAudio* _passedAudio){
 	if (_passedAudio->fileFormat == FILE_FORMAT_OGG){
 		return ov_pcm_total(_passedAudio->mainAudioStruct,-1);
+	}else if (_passedAudio->fileFormat == FILE_FORMAT_MP3){
+		return mpg123_length(*((mpg123_handle**)_passedAudio->mainAudioStruct));
 	}else{
 		return 0;
 	}
@@ -172,7 +168,7 @@ void mlgsnd_setVolume(NathanAudio* _passedAudio, signed int _newVolume){
 	//}	
 }
 
-// From the currnet spot, seek a certian number of samples. Negative numbers supported.
+/* From the currnet spot, seek a certian number of samples. Negative numbers supported.
 void mlgsnd_seekSamplesRelative(NathanAudio* _passedAudio, signed int _relativeSampleSeek){
 	if (_passedAudio->fileFormat==FILE_FORMAT_OGG){
 		ogg_int64_t _currentPosition = ov_pcm_tell(_passedAudio->mainAudioStruct);
@@ -180,13 +176,15 @@ void mlgsnd_seekSamplesRelative(NathanAudio* _passedAudio, signed int _relativeS
 			printf("error.\n");
 		}
 	}
-}
+}*/
 
 void mlgsnd_restartAudio(NathanAudio* _passedAudio){
 	if (_passedAudio->fileFormat==FILE_FORMAT_OGG){
 		if (ov_raw_seek(_passedAudio->mainAudioStruct,0)!=0){
 			printf("error.\n");
 		}
+	}else if (_passedAudio->fileFormat==FILE_FORMAT_MP3){
+		mpg123_seek(*((mpg123_handle**)_passedAudio->mainAudioStruct),0,SEEK_SET);
 	}
 }
 
@@ -201,6 +199,11 @@ int mlgsnd_getNumChannels(NathanAudio* _passedMusic){
 	if (_passedMusic->fileFormat==FILE_FORMAT_OGG){
 		vorbis_info* vi=ov_info((_passedMusic->mainAudioStruct),-1);
 		return vi->channels;
+	}else if (_passedMusic->fileFormat==FILE_FORMAT_MP3){
+		long _rateResult;
+		int _channelsResult, _encResult;
+		mpg123_getformat(*((mpg123_handle**)_passedMusic->mainAudioStruct), &_rateResult, &_channelsResult, &_encResult);
+		return _channelsResult;
 	}else{
 		return 0;
 	}
@@ -210,6 +213,11 @@ long mlgsnd_getSampleRate(NathanAudio* _passedMusic){
 	if (_passedMusic->fileFormat==FILE_FORMAT_OGG){
 		vorbis_info* vi=ov_info(_passedMusic->mainAudioStruct,-1);
 		return vi->rate;
+	}else if (_passedMusic->fileFormat==FILE_FORMAT_MP3){
+		long _rateResult;
+		int _channelsResult, _encResult;
+		mpg123_getformat(*((mpg123_handle**)_passedMusic->mainAudioStruct), &_rateResult, &_channelsResult, &_encResult);
+		return _rateResult;
 	}else{
 		return 0;
 	}
@@ -306,6 +314,56 @@ signed char mlgsnd_readOGGData(OggVorbis_File* _fileToReadFrom, char* _destinati
 	}
 	return 0;
 }
+
+// Returns 1 for end of file or error
+// Return values
+// 0 - OK
+// 1 - End of file
+// 2 - Error
+signed char _mlgsnd_readMp3Data(mpg123_handle* _fileToReadFrom, char* _destinationBuffer, int _totalBufferSize, char _passedShouldLoop){
+	printf("start intended to read %d bytes\n",_totalBufferSize);
+	int _soundBufferWriteOffset=0;
+	int _bytesLeftInBuffer = _totalBufferSize;
+	while(1){
+		size_t _bytesDecoded;
+		int _possibleErrorCode = mpg123_read(_fileToReadFrom,(unsigned char*)&(_destinationBuffer[_soundBufferWriteOffset]),_bytesLeftInBuffer,&_bytesDecoded);
+		if (_possibleErrorCode==MPG123_DONE){
+			if (_passedShouldLoop==0){
+				if (_soundBufferWriteOffset==0){
+					return 1;
+				}else{ // Just return what we have
+					memset(&(_destinationBuffer[_soundBufferWriteOffset]),0,_bytesLeftInBuffer);
+					return 0;
+				}
+			}else{
+				mpg123_seek(_fileToReadFrom,0,SEEK_SET);
+			}
+		}
+		if (_possibleErrorCode!=MPG123_OK){
+			printf("error, %s\n",mpg123_plain_strerror(_possibleErrorCode));
+			return 2;
+		}
+		if (_bytesDecoded!=0){
+			printf("read %d/%d bytes.\n",_bytesDecoded,_bytesLeftInBuffer);
+		}
+		
+		if (_bytesDecoded == 0) { // EOF
+			//printf("bytess left %d\n",_bytesLeftInBuffer);
+			//printf("eof, o noziez!\n");
+			//return 1;
+		} else {
+			_bytesLeftInBuffer-=_bytesDecoded;
+			// Move pointer in buffer
+			_soundBufferWriteOffset+=_bytesDecoded;
+			if (_bytesLeftInBuffer<=0){
+				printf("break.\n");
+				break;
+			}
+		}
+	}
+	return 0;
+}
+
 void mlgsnd_fadeoutMusic(NathanAudio* _passedAudio, unsigned int _fadeoutTime){
 	_passedAudio->fadeoutPerSwap = mlgsnd_getFadeoutPerSwap(_fadeoutTime, _passedAudio->volume);
 	_passedAudio->isFadingOut=1;
@@ -336,6 +394,8 @@ void mlgsnd_stopMusic(NathanAudio* _passedAudio){
 void _mlgsnd_disposeMusicMainStruct(NathanAudio* _passedAudio){
 	if (_passedAudio->fileFormat==FILE_FORMAT_OGG){
 		ov_clear(_passedAudio->mainAudioStruct);
+	}else if (_passedAudio->fileFormat==FILE_FORMAT_MP3){
+		mpg123_delete(*((mpg123_handle**)_passedAudio->mainAudioStruct));
 	}
 }
 void mlgsnd_freeMusic(NathanAudio* _passedAudio){
@@ -368,10 +428,12 @@ signed char _mlgsnd_loadUnprocessedData(signed char _passedFormat, void* mainAud
 	signed char _possibleReturnValue=-1;
 	if (_passedFormat==FILE_FORMAT_OGG){
 		_possibleReturnValue = mlgsnd_readOGGData(mainAudioStruct,_destinationBuffer,_totalBufferSize,_passedShouldLoop);
+	}else if (_passedFormat==FILE_FORMAT_MP3){
+		_possibleReturnValue = _mlgsnd_readMp3Data(*((mpg123_handle**)mainAudioStruct),_destinationBuffer,_totalBufferSize,_passedShouldLoop);
 	}
 	return _possibleReturnValue;
 }
-void _mlgsnd_processData(SRC_STATE* _passedConverter, SRC_DATA* _passedConverterData, short* _shortBuffer, float* _floatBufferTempSource, float* _floatBufferTempDest, unsigned int _smallBufferSamples, unsigned int _longBufferSamples, signed char _numChannels){
+/*void _mlgsnd_processData(SRC_STATE* _passedConverter, SRC_DATA* _passedConverterData, short* _shortBuffer, float* _floatBufferTempSource, float* _floatBufferTempDest, unsigned int _smallBufferSamples, unsigned int _longBufferSamples, signed char _numChannels){
 	// Update data object
 	_passedConverterData->data_in = _floatBufferTempSource;
 	_passedConverterData->data_out = _floatBufferTempDest;
@@ -389,7 +451,7 @@ void _mlgsnd_processData(SRC_STATE* _passedConverter, SRC_DATA* _passedConverter
 	}
 	// Change converted float data in temp buffer to short data with proper sample rate in proper buffer
 	src_float_to_short_array(_floatBufferTempDest,_shortBuffer,_longBufferSamples*_numChannels);
-}
+}*/
 
 // samples is _passedAudio->unscaledSamples
 // bytes is mlgsnd_getShortSourceSize(_passedAudio)
@@ -400,35 +462,40 @@ signed int mlgsnd_loadMoreData(NathanAudio* _passedAudio, unsigned char _audioBu
 		return -1;
 	}
 	
-	// Update data object
-	_passedAudio->usualConverterData.data_in = _passedAudio->tempFloatSource;
-	_passedAudio->usualConverterData.data_out = _passedAudio->tempFloatConverted;
-	// Keep these as is, secret rabbit code already accounts for channels. Stolen code: data->data_in + data->input_frames * psrc->channels
-	_passedAudio->usualConverterData.input_frames = _passedSamples;
-	_passedAudio->usualConverterData.output_frames = _passedAudio->scaledSamples;
 
-	// Change our loaded short data into loaded float data
-	src_short_to_float_array(_passedAudio->audioBuffers[_audioBufferSlot],_passedAudio->tempFloatSource,_passedSamples*mlgsnd_getNumChannels(_passedAudio));
-	// Convert loaded float data into converted float data with proper sample rate in temp buffer
-	int _possibleErrorCode = src_process(_passedAudio->personalConverter,&(_passedAudio->usualConverterData));
-	if (_possibleErrorCode!=0){
-		printf("%s\n",src_strerror(_possibleErrorCode)); // SRC_STATE pointer is NULL
-	}
+	if (_passedAudio->usualConverterData.src_ratio==1){
 
-	// Save unused samples
-	if (_passedSamples>_passedAudio->usualConverterData.input_frames_used && _passedAudio->numBuffers!=1 ){
-		signed char _nextBuffer = mlgsnd_getNextBufferIndex(_passedAudio,_audioBufferSlot);
-		signed int _possibleNextLoadOffset = (_passedSamples-_passedAudio->usualConverterData.input_frames_used)*sizeof(short)*mlgsnd_getNumChannels(_passedAudio);
-		if (_possibleNextLoadOffset>_passedSourceBufferSize){
-			printf("too much data unused, so the only logical thing to do is discard it all\n");
-		}else{
-			_passedAudio->nextBufferLoadOffset = _possibleNextLoadOffset;
-			memcpy( _passedAudio->audioBuffers[_nextBuffer], &(((char**)_passedAudio->audioBuffers)[_audioBufferSlot][_passedSourceBufferSize-_passedAudio->nextBufferLoadOffset]), _passedAudio->nextBufferLoadOffset );
+		// Update data object
+		_passedAudio->usualConverterData.data_in = _passedAudio->tempFloatSource;
+		_passedAudio->usualConverterData.data_out = _passedAudio->tempFloatConverted;
+		// Keep these as is, secret rabbit code already accounts for channels. Stolen code: data->data_in + data->input_frames * psrc->channels
+		_passedAudio->usualConverterData.input_frames = _passedSamples;
+		_passedAudio->usualConverterData.output_frames = _passedAudio->scaledSamples;
+	
+		// Change our loaded short data into loaded float data
+		src_short_to_float_array(_passedAudio->audioBuffers[_audioBufferSlot],_passedAudio->tempFloatSource,_passedSamples*mlgsnd_getNumChannels(_passedAudio));
+		// Convert loaded float data into converted float data with proper sample rate in temp buffer
+		int _possibleErrorCode = src_process(_passedAudio->personalConverter,&(_passedAudio->usualConverterData));
+		if (_possibleErrorCode!=0){
+			printf("%s\n",src_strerror(_possibleErrorCode)); // SRC_STATE pointer is NULL
 		}
-	}
+	
+		// Save unused samples
+		if (_passedSamples>_passedAudio->usualConverterData.input_frames_used && _passedAudio->numBuffers!=1 ){
+			signed char _nextBuffer = mlgsnd_getNextBufferIndex(_passedAudio,_audioBufferSlot);
+			signed int _possibleNextLoadOffset = (_passedSamples-_passedAudio->usualConverterData.input_frames_used)*sizeof(short)*mlgsnd_getNumChannels(_passedAudio);
+			if (_possibleNextLoadOffset>_passedSourceBufferSize){
+				printf("too much data unused, so the only logical thing to do is discard it all\n");
+			}else{
+				_passedAudio->nextBufferLoadOffset = _possibleNextLoadOffset;
+				memcpy( _passedAudio->audioBuffers[_nextBuffer], &(((char**)_passedAudio->audioBuffers)[_audioBufferSlot][_passedSourceBufferSize-_passedAudio->nextBufferLoadOffset]), _passedAudio->nextBufferLoadOffset );
+			}
+		}
+	
+		// Change converted float data in temp buffer to short data with proper sample rate in proper buffer
+		src_float_to_short_array(_passedAudio->tempFloatConverted,_passedAudio->audioBuffers[_audioBufferSlot],_passedAudio->usualConverterData.output_frames_gen*mlgsnd_getNumChannels(_passedAudio));
 
-	// Change converted float data in temp buffer to short data with proper sample rate in proper buffer
-	src_float_to_short_array(_passedAudio->tempFloatConverted,_passedAudio->audioBuffers[_audioBufferSlot],_passedAudio->usualConverterData.output_frames_gen*mlgsnd_getNumChannels(_passedAudio));
+	}
 
 	/*_mlgsnd_processData(_passedAudio->personalConverter,&(_passedAudio->usualConverterData),_passedAudio->audioBuffers[_audioBufferSlot],_passedAudio->tempFloatSource,_passedAudio->tempFloatConverted,_passedAudio->unscaledSamples,_passedAudio->scaledSamples, mlgsnd_getNumChannels(_passedAudio) );
 	if (_passedAudio->usualConverterData.input_frames_used!=_passedAudio->unscaledSamples){
@@ -532,19 +599,55 @@ int mlgsnd_soundPlayingThread(SceSize args, void *argp){
 }
 
 NathanAudio* _mlgsnd_loadAudio(char* filename, char _passedShouldLoop, char _passedShouldStream){
-	OggVorbis_File myVorbisFile;
-	FILE* fp = fopen(filename,"r");
-	if(ov_open(fp, &myVorbisFile, NULL, 0) != 0){
-		fclose(fp);
-		printf("open not worked!\n");
-		return NULL;
-	}
+	
 
 	NathanAudio* _returnAudio = malloc(sizeof(NathanAudio));
-	_returnAudio->mainAudioStruct = malloc(sizeof(OggVorbis_File));
-	*((OggVorbis_File*)(_returnAudio->mainAudioStruct)) = myVorbisFile;
-	_returnAudio->fileFormat = FILE_FORMAT_OGG;
+
 	
+	if (strlen(filename)>=4 && strcmp(&(filename[strlen(filename)-4]),".mp3")==0){
+		_returnAudio->fileFormat = FILE_FORMAT_MP3;
+
+		int _lastMpg123Error;
+		// https://www.mpg123.de/api/mpglib_8c_source.shtml
+		if (!haveInitMpg123){
+			printf("Init mp3\n");
+			mpg123_init();
+			haveInitMpg123=1;
+		}
+		mpg123_handle* _newHandle = mpg123_new(NULL, &_lastMpg123Error);
+		if(_newHandle == NULL){
+			printf("Unable to create mpg123 handle: %s\n", mpg123_plain_strerror(_lastMpg123Error));
+			return NULL;
+		}
+		_returnAudio->mainAudioStruct = malloc(sizeof(mpg123_handle*));
+		*((mpg123_handle**)_returnAudio->mainAudioStruct)=_newHandle;
+
+		if (mpg123_open(*((mpg123_handle**)_returnAudio->mainAudioStruct),filename)!=MPG123_OK){
+			printf("open error for mpg123.\n");
+			return NULL;
+		}
+
+		// https://www.mpg123.de/api/group__mpg123__output.shtml
+		_lastMpg123Error = mpg123_format_none(*((mpg123_handle**)_returnAudio->mainAudioStruct));
+		//44100
+		_lastMpg123Error = mpg123_format(*((mpg123_handle**)_returnAudio->mainAudioStruct),48000,MPG123_STEREO,MPG123_ENC_SIGNED_16);
+		if (_lastMpg123Error!=MPG123_OK){
+			printf("error, %d;%s\n",_lastMpg123Error,mpg123_plain_strerror(_lastMpg123Error));
+		}
+
+	}else{
+		OggVorbis_File myVorbisFile;
+		FILE* fp = fopen(filename,"r");
+		if(ov_open(fp, &myVorbisFile, NULL, 0) != 0){
+			fclose(fp);
+			printf("open not worked!\n");
+			return NULL;
+		}
+		_returnAudio->mainAudioStruct = malloc(sizeof(OggVorbis_File));
+		*((OggVorbis_File*)(_returnAudio->mainAudioStruct)) = myVorbisFile;
+		_returnAudio->fileFormat = FILE_FORMAT_OGG;
+	}
+
 	_returnAudio->quitStatus=NAUDIO_QUITSTATUS_PREPARING;
 	_returnAudio->isFadingOut=0;
 	_returnAudio->volume = SCE_AUDIO_OUT_MAX_VOL; // SCE_AUDIO_OUT_MAX_VOL is actually max volume, not 0 decibels.
@@ -722,9 +825,9 @@ int main(void) {
 	//
 	////_debugFilterPort=_theGoodBGM->audioPort;
 
-	//NathanAudio* _theGoodBGM2 = mlgsnd_loadMusic("ux0:data/SOUNDTEST/as.ogg");
-	//mlgsnd_setVolume(_theGoodBGM2,50);
-	//mlgsnd_play(_theGoodBGM2);
+	NathanAudio* _theGoodBGM2 = mlgsnd_loadMusic("ux0:data/SOUNDTEST/BGM1.mp3");
+	mlgsnd_setVolume(_theGoodBGM2,50);
+	mlgsnd_play(_theGoodBGM2);
 
 	//NathanAudio* _theGoodBGM3 = mlgsnd_loadMusic("ux0:data/SOUNDTEST/as.ogg");
 	//mlgsnd_setVolume(_theGoodBGM3,50);
@@ -733,7 +836,7 @@ int main(void) {
 	//NathanAudio* _theGoodBGM3 = mlgsnd_loadMusic("ux0:data/SOUNDTEST/as.ogg");
 	//mlgsnd_setVolume(_theGoodBGM3,50);
 	//mlgsnd_play(_theGoodBGM3);
-
+	/*
 	NathanAudio* _lastSoundEffect=NULL;
 	char* _firstPossibleSound="ux0:data/SOUNDTEST/yuna0023.ogg";
 	char* _secondPossibleSound="ux0:data/SOUNDTEST/mion.ogg";
@@ -746,11 +849,11 @@ int main(void) {
 	
 	printGuide();
 
-
+	*/
 	while (1){
 		SceCtrlData ctrl;
 		sceCtrlPeekBufferPositive(0, &ctrl, 1);
-
+		/*
 
 		if (wasJustPressed(ctrl,SCE_CTRL_RIGHT)){
 			if (_newSoundToPlay==_firstPossibleSound){
@@ -801,6 +904,7 @@ int main(void) {
 		if (wasJustPressed(ctrl,SCE_CTRL_START)){
 			printGuide();
 		}
+		*/
 
 		/*
 		if (wasJustPressed(ctrl,SCE_CTRL_UP)){
