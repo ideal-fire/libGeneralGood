@@ -321,7 +321,6 @@ signed char mlgsnd_readOGGData(OggVorbis_File* _fileToReadFrom, char* _destinati
 // 1 - End of file
 // 2 - Error
 signed char _mlgsnd_readMp3Data(mpg123_handle* _fileToReadFrom, char* _destinationBuffer, int _totalBufferSize, char _passedShouldLoop){
-	printf("start intended to read %d bytes\n",_totalBufferSize);
 	int _soundBufferWriteOffset=0;
 	int _bytesLeftInBuffer = _totalBufferSize;
 	while(1){
@@ -338,28 +337,17 @@ signed char _mlgsnd_readMp3Data(mpg123_handle* _fileToReadFrom, char* _destinati
 			}else{
 				mpg123_seek(_fileToReadFrom,0,SEEK_SET);
 			}
-		}
-		if (_possibleErrorCode!=MPG123_OK){
+		}else if (_possibleErrorCode!=MPG123_OK){
 			printf("error, %s\n",mpg123_plain_strerror(_possibleErrorCode));
-			return 2;
+			//return 2;
 		}
-		if (_bytesDecoded!=0){
-			printf("read %d/%d bytes.\n",_bytesDecoded,_bytesLeftInBuffer);
+		// Update position in buffer based on how much read
+		_bytesLeftInBuffer-=_bytesDecoded;
+		_soundBufferWriteOffset+=_bytesDecoded;
+		if (_bytesLeftInBuffer<=0){
+			break;
 		}
 		
-		if (_bytesDecoded == 0) { // EOF
-			//printf("bytess left %d\n",_bytesLeftInBuffer);
-			//printf("eof, o noziez!\n");
-			//return 1;
-		} else {
-			_bytesLeftInBuffer-=_bytesDecoded;
-			// Move pointer in buffer
-			_soundBufferWriteOffset+=_bytesDecoded;
-			if (_bytesLeftInBuffer<=0){
-				printf("break.\n");
-				break;
-			}
-		}
 	}
 	return 0;
 }
@@ -603,7 +591,7 @@ NathanAudio* _mlgsnd_loadAudio(char* filename, char _passedShouldLoop, char _pas
 
 	NathanAudio* _returnAudio = malloc(sizeof(NathanAudio));
 
-	
+	// TODO - Have no fear, just try and start programming mp3 support!
 	if (strlen(filename)>=4 && strcmp(&(filename[strlen(filename)-4]),".mp3")==0){
 		_returnAudio->fileFormat = FILE_FORMAT_MP3;
 
@@ -825,7 +813,7 @@ int main(void) {
 	//
 	////_debugFilterPort=_theGoodBGM->audioPort;
 
-	NathanAudio* _theGoodBGM2 = mlgsnd_loadMusic("ux0:data/SOUNDTEST/BGM1.mp3");
+	NathanAudio* _theGoodBGM2 = mlgsnd_loadMusic("ux0:data/SOUNDTEST/itemsound.mp3");
 	mlgsnd_setVolume(_theGoodBGM2,50);
 	mlgsnd_play(_theGoodBGM2);
 

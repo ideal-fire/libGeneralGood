@@ -76,6 +76,22 @@
 			IMG_Init( IMG_INIT_JPG );
 			SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
 			SDL_SetRenderDrawBlendMode(mainWindowRenderer,SDL_BLENDMODE_BLEND);
+
+
+			// Set a solid white icon. Code implemented because KDE, at least the version I'm using with Debian, has trouble with applications without icons.
+			SDL_Surface* tempIconSurface;
+			Uint16* _surfacePixels = malloc(sizeof(Uint16)*16*16);
+			char i, j;
+			for (i=0;i<16;++i){
+				for (j=0;j<16;++j){
+					_surfacePixels[i*16+j]=0xffff;
+				}
+			}
+			tempIconSurface = SDL_CreateRGBSurfaceFrom(_surfacePixels,16,16,16,16*2,0x0f00,0x00f0,0x000f,0xf000);
+			SDL_SetWindowIcon(mainWindow, tempIconSurface);
+			SDL_FreeSurface(tempIconSurface);
+
+
 		#elif RENDERER == REND_VITA2D
 			vita2d_init();
 			*_storeWindowWidth=960;
