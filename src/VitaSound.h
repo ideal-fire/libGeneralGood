@@ -451,7 +451,7 @@ signed int mlgsnd_loadMoreData(NathanAudio* _passedAudio, unsigned char _audioBu
 	}
 	
 
-	if (_passedAudio->usualConverterData.src_ratio==1){
+	if (_passedAudio->usualConverterData.src_ratio!=1){
 
 		// Update data object
 		_passedAudio->usualConverterData.data_in = _passedAudio->tempFloatSource;
@@ -467,7 +467,8 @@ signed int mlgsnd_loadMoreData(NathanAudio* _passedAudio, unsigned char _audioBu
 		if (_possibleErrorCode!=0){
 			printf("%s\n",src_strerror(_possibleErrorCode)); // SRC_STATE pointer is NULL
 		}
-	
+		
+		//printf("%d;%d\n",_passedAudio->usualConverterData.input_frames_used,_passedAudio->usualConverterData.output_frames_gen);
 		// Save unused samples
 		if (_passedSamples>_passedAudio->usualConverterData.input_frames_used && _passedAudio->numBuffers!=1 ){
 			signed char _nextBuffer = mlgsnd_getNextBufferIndex(_passedAudio,_audioBufferSlot);
@@ -591,7 +592,6 @@ NathanAudio* _mlgsnd_loadAudio(char* filename, char _passedShouldLoop, char _pas
 
 	NathanAudio* _returnAudio = malloc(sizeof(NathanAudio));
 
-	// TODO - Have no fear, just try and start programming mp3 support!
 	if (strlen(filename)>=4 && strcmp(&(filename[strlen(filename)-4]),".mp3")==0){
 		_returnAudio->fileFormat = FILE_FORMAT_MP3;
 
@@ -813,7 +813,7 @@ int main(void) {
 	//
 	////_debugFilterPort=_theGoodBGM->audioPort;
 
-	NathanAudio* _theGoodBGM2 = mlgsnd_loadMusic("ux0:data/SOUNDTEST/itemsound.mp3");
+	NathanAudio* _theGoodBGM2 = mlgsnd_loadMusic("ux0:data/SOUNDTEST/msys01.ogg");
 	mlgsnd_setVolume(_theGoodBGM2,50);
 	mlgsnd_play(_theGoodBGM2);
 
