@@ -128,7 +128,6 @@ signed char haveInitMpg123=0;
 
 //int _debugFilterPort=0;
 
-// TODO - libmpg123, use it.
 // TODO - Try downscaling high sample rate
 	// Pretty sure my 125% buffer system will break it.
 
@@ -507,8 +506,6 @@ int mlgsnd_soundPlayingThread(SceSize args, void *argp){
 	int _currentPort = (int)(((void**)argp)[1]);
 	free(argp);
 
-	++_passedAudio->totalPlaying;
-
 	signed short i;
 	for (i=0;_passedAudio->quitStatus != NAUDIO_QUITSTATUS_SHOULDQUIT;){
 		// Detect volume changes
@@ -776,6 +773,9 @@ void mlgsnd_play(NathanAudio* _passedAudio){
 	// Set this flag as late as possible
 	_passedAudio->quitStatus = NAUDIO_QUITSTATUS_PLAYING;
 
+	// Do it before we start playing
+	++_passedAudio->totalPlaying;
+
 	// Start sound thread
 	sceKernelStartThread(_passedAudio->playerThreadId,sizeof(void**),&_newArgs);
 }
@@ -813,9 +813,20 @@ int main(void) {
 	//
 	////_debugFilterPort=_theGoodBGM->audioPort;
 
-	NathanAudio* _theGoodBGM2 = mlgsnd_loadMusic("ux0:data/SOUNDTEST/msys01.ogg");
+	NathanAudio* _theGoodBGM2 = _mlgsnd_loadAudio("ux0:data/SOUNDTEST/smart.ogg",0,1);
 	mlgsnd_setVolume(_theGoodBGM2,50);
 	mlgsnd_play(_theGoodBGM2);
+	mlgsnd_freeMusic(_theGoodBGM2);
+	printf("a\n");
+	sceKernelDelayThread(1000);
+	printf("b\n");
+	_theGoodBGM2 = _mlgsnd_loadAudio("ux0:data/SOUNDTEST/smart.ogg",0,1);
+	mlgsnd_setVolume(_theGoodBGM2,50);
+	mlgsnd_play(_theGoodBGM2);
+
+	//NathanAudio* _theGoodBGM3 = _mlgsnd_loadAudio("ux0:data/SOUNDTEST/rikatest.ogg",0,1);
+	//mlgsnd_setVolume(_theGoodBGM3,50);
+	//mlgsnd_play(_theGoodBGM3);
 
 	//NathanAudio* _theGoodBGM3 = mlgsnd_loadMusic("ux0:data/SOUNDTEST/as.ogg");
 	//mlgsnd_setVolume(_theGoodBGM3,50);
