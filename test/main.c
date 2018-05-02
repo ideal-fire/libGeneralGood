@@ -8,8 +8,8 @@
 
 // Because we're using SDL on Windows, main definition must be like this.
 int main(int argc, char *argv[]){
-	int screenWidth;
-	int screenHeight;
+	int screenWidth=0;
+	int screenHeight=0;
 	// Make 640x480 window. If not on Windows, will use the real screen resolution and then store it in screenWidth and screenHeight. For example, if you compile this for PS Vita, screenWidth will be 960 and screenHeight will be 544.
 	initGraphics(640,480, &screenWidth, &screenHeight);
 
