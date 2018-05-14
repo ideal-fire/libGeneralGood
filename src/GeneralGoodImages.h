@@ -213,14 +213,17 @@
 		#endif
 	}
 
-	void drawTexturePartScaleTint(CrossTexture* passedTexture, int destX, int destY, int texX, int texY, int texW, int texH, double texXScale, double texYScale, unsigned char r, unsigned char g, unsigned b){
+	void drawTexturePartScaleTintAlpha(CrossTexture* passedTexture, int destX, int destY, int texX, int texY, int texW, int texH, double texXScale, double texYScale, unsigned char r, unsigned char g, unsigned b, unsigned char a){
 		EASYFIXCOORDS(&destX,&destY);
 		#if RENDERER == REND_VITA2D
-			vita2d_draw_texture_tint_part_scale(passedTexture,destX,destY,texX,texY,texW, texH, texXScale, texYScale,RGBA8(r,g,b,255));
+			vita2d_draw_texture_tint_part_scale(passedTexture,destX,destY,texX,texY,texW, texH, texXScale, texYScale,RGBA8(r,g,b,a));
 		#elif RENDERER == REND_SDL
 			unsigned char oldr;
 			unsigned char oldg;
 			unsigned char oldb;
+			unsigned char olda;
+			SDL_GetTextureAlphaMod(passedTexture, &olda);
+			SDL_SetTextureAlphaMod(passedTexture, a);
 			SDL_GetTextureColorMod(passedTexture,&oldr,&oldg,&oldb);
 			SDL_SetTextureColorMod(passedTexture, r,g,b);
 			SDL_Rect _srcRect;
@@ -239,9 +242,14 @@
 	
 			SDL_RenderCopy(mainWindowRenderer, passedTexture, &_srcRect, &_destRect );
 			SDL_SetTextureColorMod(passedTexture, oldr, oldg, oldb);
+			SDL_SetTextureAlphaMod(passedTexture, olda);
 		#elif RENDERER==REND_SF2D
-			sf2d_draw_texture_part_scale_blend(passedTexture,destX,destY,texX,texY,texW, texH, texXScale, texYScale, RGBA8(r,g,b,255));
+			sf2d_draw_texture_part_scale_blend(passedTexture,destX,destY,texX,texY,texW, texH, texXScale, texYScale, RGBA8(r,g,b,a));
 		#endif
+	}
+
+	void drawTexturePartScaleTint(CrossTexture* passedTexture, int destX, int destY, int texX, int texY, int texW, int texH, double texXScale, double texYScale, unsigned char r, unsigned char g, unsigned char b){
+		drawTexturePartScaleTintAlpha(passedTexture, destX, destY, texX, texY, texW, texH, texXScale, texYScale, r, g, b,255);
 	}
 	
 	void drawTextureScale(CrossTexture* passedTexture, int destX, int destY, double texXScale, double texYScale){

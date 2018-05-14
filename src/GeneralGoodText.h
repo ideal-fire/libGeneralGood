@@ -25,7 +25,7 @@
 	#endif
 
 	#if TEXTRENDERER == TEXT_DEBUG
-		typedef struct gfreughrue{
+		typedef struct{
 			int x;
 			int y;
 			int imageWidth;
@@ -40,10 +40,14 @@
 			letterId-=32;
 			drawTexturePartScale(fontImage,_x,_y+bitmapFontLetterInfo[letterId].y,bitmapFontLetterInfo[letterId].x,bitmapFontLetterInfo[letterId].y,bitmapFontLetterInfo[letterId].imageWidth,bitmapFontLetterInfo[letterId].imageHeight,size,size);
 		}
-		void drawLetterColor(int letterId, int _x, int _y, float size, unsigned char r, unsigned char g, unsigned char b){
+		void drawLetterColorAlpha(int letterId, int _x, int _y, float size, unsigned char r, unsigned char g, unsigned char b, unsigned char a){
 			letterId-=32;
-			drawTexturePartScaleTint(fontImage,_x,_y+bitmapFontLetterInfo[letterId].y,bitmapFontLetterInfo[letterId].x,bitmapFontLetterInfo[letterId].y,bitmapFontLetterInfo[letterId].imageWidth,bitmapFontLetterInfo[letterId].imageHeight,size,size,r,g,b);
+			drawTexturePartScaleTintAlpha(fontImage,_x,_y+bitmapFontLetterInfo[letterId].y,bitmapFontLetterInfo[letterId].x,bitmapFontLetterInfo[letterId].y,bitmapFontLetterInfo[letterId].imageWidth,bitmapFontLetterInfo[letterId].imageHeight,size,size,r,g,b,a);
 		}
+		void drawLetterColor(int letterId, int _x, int _y, float size, unsigned char r, unsigned char g, unsigned char b){
+			drawLetterAlpha(letterId,_x,_y,size,r,g,b,255);
+		}
+
 	#endif
 
 	void loadFont(char* filename){
@@ -106,16 +110,16 @@
 			return FC_GetWidth(fontImage,"%s",message);
 		#endif
 	}
-	void goodDrawTextColored(int x, int y, const char* text, float size, unsigned char r, unsigned char g, unsigned char b){
+	void goodDrawTextColoredAlpha(int x, int y, const char* text, float size, unsigned char r, unsigned char g, unsigned char b, unsigned char a){
+		EASYFIXCOORDS(&x,&y);
 		#if TEXTRENDERER == TEXT_VITA2D
-			EASYFIXCOORDS(&x,&y);
-			vita2d_font_draw_text(fontImage,x,y+textHeight(size), RGBA8(r,g,b,255),floor(size),text);
+			vita2d_font_draw_text(fontImage,x,y+textHeight(size), RGBA8(r,g,b,a),floor(size),text);
 		#elif TEXTRENDERER == TEXT_DEBUG
 			int i=0;
 			int _currentDrawTextX=x;
 			for (i = 0; i < strlen(text); i++){
 				if (text[i]-32<95){
-					drawLetterColor(text[i],_currentDrawTextX,y,size,r,g,b);
+					drawLetterColorAlpha(text[i],_currentDrawTextX,y,size,r,g,b,a);
 					_currentDrawTextX+=bitmapFontLetterInfo[text[i]-32].imageDisplayWidth;
 				}
 			}
@@ -125,13 +129,16 @@
 			_tempcolor.r = r;
 			_tempcolor.g = g;
 			_tempcolor.b = b;
-			_tempcolor.a = 255;
+			_tempcolor.a = a;
 			FC_DrawColor(fontImage, mainWindowRenderer, x, y, _tempcolor ,"%s", text);
 		#endif
 	}
+	void goodDrawTextColored(int x, int y, const char* text, float size, unsigned char r, unsigned char g, unsigned char b){
+		goodDrawTextColoredAlpha(x,y,text,size,r,g,b,255);
+	}
 	void goodDrawText(int x, int y, const char* text, float size){
+		EASYFIXCOORDS(&x,&y);
 		#if TEXTRENDERER == TEXT_VITA2D
-			EASYFIXCOORDS(&x,&y);
 			vita2d_font_draw_text(fontImage,x,y+textHeight(size), RGBA8(255,255,255,255),floor(size),text);
 		#elif TEXTRENDERER == TEXT_DEBUG
 			// TODO - Make this just call goodDrawTextColored
@@ -144,7 +151,7 @@
 				}
 			}
 		#elif TEXTRENDERER == TEXT_FONTCACHE
-			goodDrawTextColored(x,y,text,size,255,255,255);
+			goodDrawTextColoredAlpha(x,y,text,size,255,255,255,255);
 		#endif
 	}
 
