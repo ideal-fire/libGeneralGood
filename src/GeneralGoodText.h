@@ -45,7 +45,7 @@
 			drawTexturePartScaleTintAlpha(fontImage,_x,_y+bitmapFontLetterInfo[letterId].y,bitmapFontLetterInfo[letterId].x,bitmapFontLetterInfo[letterId].y,bitmapFontLetterInfo[letterId].imageWidth,bitmapFontLetterInfo[letterId].imageHeight,size,size,r,g,b,a);
 		}
 		void drawLetterColor(int letterId, int _x, int _y, float size, unsigned char r, unsigned char g, unsigned char b){
-			drawLetterAlpha(letterId,_x,_y,size,r,g,b,255);
+			drawLetterColorAlpha(letterId,_x,_y,size,r,g,b,255);
 		}
 
 	#endif
@@ -124,7 +124,6 @@
 				}
 			}
 		#elif TEXTRENDERER == TEXT_FONTCACHE
-			EASYFIXCOORDS(&x,&y);
 			SDL_Color _tempcolor;
 			_tempcolor.r = r;
 			_tempcolor.g = g;
@@ -137,10 +136,11 @@
 		goodDrawTextColoredAlpha(x,y,text,size,r,g,b,255);
 	}
 	void goodDrawText(int x, int y, const char* text, float size){
-		EASYFIXCOORDS(&x,&y);
 		#if TEXTRENDERER == TEXT_VITA2D
+			EASYFIXCOORDS(&x,&y);
 			vita2d_font_draw_text(fontImage,x,y+textHeight(size), RGBA8(255,255,255,255),floor(size),text);
 		#elif TEXTRENDERER == TEXT_DEBUG
+			EASYFIXCOORDS(&x,&y);
 			// TODO - Make this just call goodDrawTextColored
 			int i=0;
 			int _currentDrawTextX=x;
