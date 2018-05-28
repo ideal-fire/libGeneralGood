@@ -2,6 +2,7 @@
 // oldest to newest
 //https://pastebin.com/4R59NH12
 //https://pastebin.com/raw/m9k41uD7
+//https://pastebin.com/raw/SP4tpNga
 #if HEADER_MLGVITASOUND
 #warning reincluded
 #else
@@ -118,6 +119,8 @@ typedef struct{
 	signed char isFadingOut;
 	unsigned int fadeoutPerSwap; // In Vita volume units
 	signed int lastVolume; // Used to detect volume changes
+
+	FILE* _internalFilePointer; // Do not mess with normally please
 }NathanAudio;
 int lastConverterError=0;
 signed char haveInitMpg123=0;
@@ -267,12 +270,38 @@ int getTicks(){
 }
 #endif
 
+char* getErrorName(int _errorCode){
+	switch (_errorCode){
+		case OV_EREAD:
+			return "OV_EREAD";
+		case OV_ENOTVORBIS:
+			return "OV_ENOTVORBIS";
+		case OV_EVERSION:
+			return "OV_EVERSION";
+		case OV_EBADHEADER:
+			return "OV_EBADHEADER";
+		case OV_EFAULT:
+			return "OV_EFAULT";
+		case OV_HOLE:
+			return "OV_HOLE";
+		case OV_EBADLINK:
+			return "OV_EBADLINK";
+		case OV_EINVAL:
+			return "OV_EINVAL";
+		case 0:
+			return "ok";
+		default:
+			return "???";
+	}
+	return "why is this here?";
+}
+
 // Returns 1 for end of file or error
 // Return values
 // 0 - OK
 // 1 - End of file
 // 2 - Error
-signed char mlgsnd_readOGGData(OggVorbis_File* _fileToReadFrom, char* _destinationBuffer, int _totalBufferSize, char _passedShouldLoop){
+signed char mlgsnd_readOGGData(OggVorbis_File* _fileToReadFrom, char* _destinationBuffer, int _totalBufferSize, char _passedShouldLoop, FILE* _internalFilePointer){
 	int _soundBufferWriteOffset=0;
 	int _currentSection;
 	int _bytesLeftInBuffer = _totalBufferSize;
@@ -288,6 +317,18 @@ signed char mlgsnd_readOGGData(OggVorbis_File* _fileToReadFrom, char* _destinati
 					return 0;
 				}
 			}else{
+				// Alright, we're going to loop.
+				// When the user exits to LiveArea and goes back in, this code will thinks it hit EOF. That is because the file pointer won't work anymore.
+				// Calling ov_raw_seek with a broken file pointer crashes. Standard functions won't crash when interacting with the file, though.
+				// So, because we think we're at the end of the file, we can probably go back one byte.
+				// If it doesn't work, we know the file pointer is broken and we should cancel loading.
+				// If it does work, we can continue with the loading after fixing our seeking.
+				if (fseek(_internalFilePointer,-1,SEEK_CUR)!=0){
+					// File has been broken, quit.
+					return 2;
+				}else{
+					fseek(_internalFilePointer,1,SEEK_CUR);
+				}
 				if (ov_raw_seek(_fileToReadFrom,0)!=0){
 					return 1;
 				}
@@ -411,10 +452,10 @@ void mlgsnd_freeMusic(NathanAudio* _passedAudio){
 
 
 // Returns NOT 0 if audio is done playing or error, 0 otherwise
-signed char _mlgsnd_loadUnprocessedData(signed char _passedFormat, void* mainAudioStruct, char* _destinationBuffer, int _totalBufferSize, char _passedShouldLoop){
+signed char _mlgsnd_loadUnprocessedData(signed char _passedFormat, void* mainAudioStruct, char* _destinationBuffer, int _totalBufferSize, char _passedShouldLoop, NathanAudio* _passedAudio){
 	signed char _possibleReturnValue=-1;
 	if (_passedFormat==FILE_FORMAT_OGG){
-		_possibleReturnValue = mlgsnd_readOGGData(mainAudioStruct,_destinationBuffer,_totalBufferSize,_passedShouldLoop);
+		_possibleReturnValue = mlgsnd_readOGGData(mainAudioStruct,_destinationBuffer,_totalBufferSize,_passedShouldLoop,_passedAudio->_internalFilePointer);
 	}else if (_passedFormat==FILE_FORMAT_MP3){
 		_possibleReturnValue = _mlgsnd_readMp3Data(*((mpg123_handle**)mainAudioStruct),_destinationBuffer,_totalBufferSize,_passedShouldLoop);
 	}
@@ -443,13 +484,11 @@ signed char _mlgsnd_loadUnprocessedData(signed char _passedFormat, void* mainAud
 // samples is _passedAudio->unscaledSamples
 // bytes is mlgsnd_getShortSourceSize(_passedAudio)
 signed int mlgsnd_loadMoreData(NathanAudio* _passedAudio, unsigned char _audioBufferSlot, unsigned int _passedSamples, unsigned int _passedSourceBufferSize){
-	signed char _possibleReturnValue = _mlgsnd_loadUnprocessedData(_passedAudio->fileFormat,_passedAudio->mainAudioStruct, &(((char**)_passedAudio->audioBuffers)[_audioBufferSlot][_passedAudio->nextBufferLoadOffset]),_passedSourceBufferSize-_passedAudio->nextBufferLoadOffset,_passedAudio->shouldLoop);
+	signed char _possibleReturnValue = _mlgsnd_loadUnprocessedData(_passedAudio->fileFormat,_passedAudio->mainAudioStruct, &(((char**)_passedAudio->audioBuffers)[_audioBufferSlot][_passedAudio->nextBufferLoadOffset]),_passedSourceBufferSize-_passedAudio->nextBufferLoadOffset,_passedAudio->shouldLoop,_passedAudio);
 	_passedAudio->nextBufferLoadOffset=0;
 	if (_possibleReturnValue!=0){
 		return -1;
 	}
-	
-
 	if (_passedAudio->usualConverterData.src_ratio!=1){
 
 		// Update data object
@@ -585,8 +624,6 @@ int mlgsnd_soundPlayingThread(SceSize args, void *argp){
 }
 
 NathanAudio* _mlgsnd_loadAudio(char* filename, char _passedShouldLoop, char _passedShouldStream){
-	
-
 	NathanAudio* _returnAudio = malloc(sizeof(NathanAudio));
 
 	if (strlen(filename)>=4 && strcmp(&(filename[strlen(filename)-4]),".mp3")==0){
@@ -620,15 +657,19 @@ NathanAudio* _mlgsnd_loadAudio(char* filename, char _passedShouldLoop, char _pas
 			printf("error, %d;%s\n",_lastMpg123Error,mpg123_plain_strerror(_lastMpg123Error));
 		}
 
+	}else if (strlen(filename)>=4 && strcmp(&(filename[strlen(filename)-4]),".wav")==0){
 	}else{
 		OggVorbis_File myVorbisFile;
 		FILE* fp = fopen(filename,"r");
-		if(ov_open(fp, &myVorbisFile, NULL, 0) != 0){
+		int _possibleErrorCode = ov_open(fp, &myVorbisFile, NULL, 0);
+		if(_possibleErrorCode != 0){
 			fclose(fp);
 			printf("open not worked!\n");
+			printf("Error: %d;%s",_possibleErrorCode,getErrorName(_possibleErrorCode));
 			return NULL;
 		}
 		_returnAudio->mainAudioStruct = malloc(sizeof(OggVorbis_File));
+		_returnAudio->_internalFilePointer = fp;
 		*((OggVorbis_File*)(_returnAudio->mainAudioStruct)) = myVorbisFile;
 		_returnAudio->fileFormat = FILE_FORMAT_OGG;
 	}
@@ -813,16 +854,17 @@ int main(void) {
 	//
 	////_debugFilterPort=_theGoodBGM->audioPort;
 
-	NathanAudio* _theGoodBGM2 = _mlgsnd_loadAudio("ux0:data/SOUNDTEST/smart.ogg",0,1);
+	//NathanAudio* _theGoodBGM2 = _mlgsnd_loadAudio("ux0:data/HIGURASHI/Games/umineko 4-converted/SE/11900015.ogg",0,1);
+	NathanAudio* _theGoodBGM2 = _mlgsnd_loadAudio("ux0:data/SOUNDTEST/matt.ogg",1,1);
 	mlgsnd_setVolume(_theGoodBGM2,50);
 	mlgsnd_play(_theGoodBGM2);
-	mlgsnd_freeMusic(_theGoodBGM2);
-	printf("a\n");
-	sceKernelDelayThread(1000);
-	printf("b\n");
-	_theGoodBGM2 = _mlgsnd_loadAudio("ux0:data/SOUNDTEST/smart.ogg",0,1);
-	mlgsnd_setVolume(_theGoodBGM2,50);
-	mlgsnd_play(_theGoodBGM2);
+	//mlgsnd_freeMusic(_theGoodBGM2);
+	//printf("a\n");
+	//sceKernelDelayThread(1000);
+	//printf("b\n");
+	//_theGoodBGM2 = _mlgsnd_loadAudio("ux0:data/SOUNDTEST/smart.ogg",0,1);
+	//mlgsnd_setVolume(_theGoodBGM2,50);
+	//mlgsnd_play(_theGoodBGM2);
 
 	//NathanAudio* _theGoodBGM3 = _mlgsnd_loadAudio("ux0:data/SOUNDTEST/rikatest.ogg",0,1);
 	//mlgsnd_setVolume(_theGoodBGM3,50);
@@ -852,6 +894,13 @@ int main(void) {
 	while (1){
 		SceCtrlData ctrl;
 		sceCtrlPeekBufferPositive(0, &ctrl, 1);
+		printf("a\n");
+		if (wasJustPressed(ctrl,SCE_CTRL_SQUARE)){
+			if (_theGoodBGM2!=NULL){
+				printf("Free sound effect.\n");
+				mlgsnd_freeMusic(_theGoodBGM2);
+			}
+		}
 		/*
 
 		if (wasJustPressed(ctrl,SCE_CTRL_RIGHT)){
