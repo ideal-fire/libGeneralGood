@@ -1,0 +1,1 @@
+Files for compiling located in "src" folder don't point to libs or includes correctly right now.

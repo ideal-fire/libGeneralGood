@@ -65,7 +65,8 @@
 			FSUSER_OpenArchive(&_sdArchive, ARCHIVE_SDMC, fsMakePath(PATH_EMPTY, ""));
 			romfsInit();
 		#elif PLATFORM == PLAT_VITA
-		#else
+		#elif PLATFORM == PLAT_SWITCH
+			romfsInit();
 		#endif
 	}
 	void generalGoodQuit(){
@@ -86,6 +87,9 @@
 			svcSleepThread(miliseconds*1000000);
 		#elif PLATFORM == PLAT_COMPUTER
 			Sleep(miliseconds);
+		#elif PLATFORM == PLAT_SWITCH
+			//https://github.com/switchbrew/libnx/blob/a12eb11eab9742afc8c90c0805b02fd1341a7bbc/nx/include/switch/kernel/svc.h
+			svcSleepThread(miliseconds*1000000);
 		#endif
 	}
 	
@@ -149,6 +153,13 @@
 				fclose(fp);
 				return 1;
 			}
+		#else
+			FILE* fp = fopen(location,"r");
+			if (fp==NULL){
+				return 0;
+			}
+			fclose(fp);
+			return 1;
 		#endif
 	}
 
@@ -192,6 +203,10 @@
 	#elif PLATFORM == PLAT_3DS
 		#define CROSSDIR Handle
 		#define CROSSDIRSTORAGE FS_DirectoryEntry
+	#else
+		#warning NO DIRECTORY LISTING YET
+		#define CROSSDIR int
+		#define CROSSDIRSTORAGE int
 	#endif
 
 	char dirOpenWorked(CROSSDIR passedir){
@@ -207,8 +222,9 @@
 			if (passedir==0){
 				return 0;
 			}
+		#else
+			return 0;
 		#endif
-		return 1;
 	}
 
 	CROSSDIR openDirectory(const char* filepath){
@@ -229,6 +245,8 @@
 				return 0;
 			}
 			return _openedDirectory;
+		#else
+			return 0;
 		#endif
 	}
 
@@ -240,6 +258,8 @@
 			return ((passedStorage)->d_name);
 		#elif PLATFORM == PLAT_3DS
 			return (char*)(passedStorage->name);
+		#else
+			return NULL;
 		#endif
 	}
 
@@ -271,6 +291,8 @@
 				memcpy(_tempName,_tempBuffer,_foundStrlen+1);
 			}
 			return _didReadSomething;
+		#else
+			return 0;
 		#endif
 	}
 

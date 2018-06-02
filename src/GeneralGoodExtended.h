@@ -26,10 +26,10 @@
 	//#endif
 
 	unsigned char isSkipping=0;
-	signed char InputValidity = 1;
+	signed char InputValidity=1;
 	
 	// Required to fix touchscreen coords
-	#if PLATFORM == PLAT_COMPUTER
+	#if RENDERER == REND_SDL
 		// These are defined for you if you're using libGeneralGood
 		extern int _generalGoodRealScreenWidth;
 		extern int _generalGoodRealScreenHeight;
@@ -101,6 +101,17 @@
 		u32 pad;
 		u32 lastPad;
 	#endif
+	#if PLATFORM == PLAT_SWITCH
+		#include <switch.h>
+
+		u64 switchJustPressedPad;
+		u64 switchHeldPad;
+		u64 switchReleasedPad;
+
+		#define possibleControlNumberType u64
+	#else
+		#define possibleControlNumberType int
+	#endif
 
 	// Subplatform Stuff
 	#if SUBPLATFORM == SUB_ANDROID
@@ -114,7 +125,7 @@
 	#endif
 
 	// Renderer stuff
-	#if RENDERER == REND_SDL && PLATFORM != PLAT_VITA
+	#if RENDERER == REND_SDL && PLATFORM != PLAT_VITA && PLATFORM != PLAT_SWITCH
 		// Stores control data
 		char pad[21]={0};
 		char lastPad[21]={0};
@@ -132,7 +143,7 @@
 		}
 	#endif
 
-	signed char wasJustReleased(int value){
+	possibleControlNumberType wasJustReleased(possibleControlNumberType value){
 		if (InputValidity==1 || isSkipping==1){
 			#if PLATFORM == PLAT_VITA
 				if (lastPad.buttons & value && !(pad.buttons & value)){
@@ -142,13 +153,19 @@
 				if (lastPad[value]==1 && pad[value]==0){
 					return 1;
 				}
+			#elif PLATFORM == PLAT_3DS
+
+			#elif PLATFORM == PLAT_SWITCH
+				// Don't just return the value of the & operation. We need return value to fit into char.
+				if (switchReleasedPad & value){
+					return 1;
+				}
 			#endif
 		}
 		return 0;
 	}
 
-	signed char wasJustPressedRegardless(int value){
-		
+	possibleControlNumberType wasJustPressedRegardless(possibleControlNumberType value){
 		#if PLATFORM == PLAT_VITA
 			if (pad.buttons & value && !(lastPad.buttons & value)){
 				return 1;
@@ -161,23 +178,37 @@
 			if (lastPad & value){
 				return 1;
 			}
+		#elif PLATFORM == PLAT_SWITCH
+			if (switchJustPressedPad & value){
+				return 1;
+			}
 		#endif
-		
 		return 0;
 	}
 
-	signed char wasJustPressed(int value){
+	possibleControlNumberType wasJustPressed(possibleControlNumberType value){
+		if (InputValidity==1 || isSkipping==1){
+			return (wasJustPressedRegardless(value));
+		}
+		return 0;
+	}
+
+	possibleControlNumberType isDown(possibleControlNumberType value){
 		if (InputValidity==1 || isSkipping==1){
 			#if PLATFORM == PLAT_VITA
-				if (pad.buttons & value && !(lastPad.buttons & value)){
+				if (pad.buttons & value){
 					return 1;
 				}
 			#elif PLATFORM == PLAT_COMPUTER
-				if (pad[value]==1 && lastPad[value]==0){
+				if (pad[value]==1){
 					return 1;
 				}
-			#elif PLATFORM==PLAT_3DS
-				if (lastPad & value){
+			#elif PLATFORM == PLAT_3DS
+				if (pad & value){
+					return 1;
+				}
+			#elif PLATFORM == PLAT_SWITCH
+				if (switchHeldPad & value){
 					return 1;
 				}
 			#endif
@@ -189,6 +220,11 @@
 		#if PLATFORM == PLAT_VITA
 			sceCtrlPeekBufferPositive(0, &pad, 1);
 			//sceTouchPeek(SCE_TOUCH_PORT_FRONT, &currentTouch, 1);
+		#elif PLATFORM == PLAT_SWITCH
+			hidScanInput();
+			switchJustPressedPad = hidKeysDown(CONTROLLER_P1_AUTO);
+			switchHeldPad = hidKeysHeld(CONTROLLER_P1_AUTO);
+			switchReleasedPad = hidKeysUp(CONTROLLER_P1_AUTO);
 		#elif RENDERER == REND_SDL
 			SDL_Event e;
 			while( SDL_PollEvent( &e ) != 0 ){
@@ -258,8 +294,6 @@
 				}else if (e.type == SDL_MOUSEBUTTONUP){
 					pad[SCE_TOUCH] = 0;
 				}
-				
-
 			}
 		#elif PLATFORM == PLAT_3DS
 			hidScanInput();
@@ -275,6 +309,10 @@
 			memcpy(lastPad,pad,sizeof(pad));
 		#elif PLATFORM == PLAT_3DS
 			// I guess I don't need this.
+		#elif PLATFORM == PLAT_SWITCH
+			switchJustPressedPad = 0;
+			switchHeldPad = 0;
+			switchJustPressedPad = 0;
 		#endif
 	}
 
@@ -283,33 +321,17 @@
 		controlsEnd();
 
 	void controlsResetEmpty(){
-		#if PLATFORM != PLAT_VITA
-			memset(&pad,0,sizeof(pad));
-			memset(&lastPad,0,sizeof(lastPad));
-		#elif PLATFORM == PLAT_VITA
+		#if PLATFORM == PLAT_VITA
 			memset(&pad.buttons,0,sizeof(pad.buttons));
 			memset(&lastPad.buttons,0,sizeof(pad.buttons));
+		#elif PLATFORM == PLAT_SWITCH
+			switchJustPressedPad = 0;
+			switchHeldPad = 0;
+			switchJustPressedPad = 0;
+		#elif PLATFORM != PLAT_VITA
+			memset(&pad,0,sizeof(pad));
+			memset(&lastPad,0,sizeof(lastPad));
 		#endif
-	}
-
-	signed char isDown(int value){
-		if (InputValidity==1 || isSkipping==1){
-			#if PLATFORM == PLAT_VITA
-				if (pad.buttons & value){
-					return 1;
-				}
-			#elif PLATFORM == PLAT_COMPUTER
-		
-				if (pad[value]==1){
-					return 1;
-				}
-			#elif PLATFORM == PLAT_3DS
-				if (pad & value){
-					return 1;
-				}
-			#endif
-		}
-		return 0;
 	}
 
 	// Passed string should be freed already
@@ -339,6 +361,11 @@
 			strcpy(*_dataDirPointer,"/3ds/data/");
 			strcat(*_dataDirPointer,VITAAPPID);
 			strcat(*_dataDirPointer,"/");
+		#elif PLATFORM == PLAT_SWITCH
+			*_dataDirPointer = malloc(strlen("/switch/")+strlen(VITAAPPID)+2);
+			strcpy(*_dataDirPointer,"/switch/");
+			strcat(*_dataDirPointer,VITAAPPID);
+			strcat(*_dataDirPointer,"/");
 		#endif
 	}
 
@@ -364,6 +391,11 @@
 				}else{
 					strcpy((char*)_buffer,DATAFOLDER);
 				}
+			#elif PLATFORM == PLAT_SWITCH
+				strcpy((char*)_buffer,"romfs:/");
+			#else
+				#warning NO EMBEDDED FILES YET
+				strcpy((char*)_buffer,DATAFOLDER);
 			#endif
 		}else{
 			printf("Unknown type.\n");

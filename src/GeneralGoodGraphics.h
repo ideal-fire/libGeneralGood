@@ -45,6 +45,7 @@
 	void initGraphics(int _windowWidth, int _windowHeight, int* _storeWindowWidth, int* _storeWindowHeight){
 		#if RENDERER == REND_SDL
 			SDL_Init(SDL_INIT_VIDEO);
+			mainWindowRenderer=NULL;
 			// If platform is Android, make the window fullscreen and store the screen size in the arguments.
 			#if SUBPLATFORM == SUB_ANDROID
 				SDL_DisplayMode displayMode;
@@ -56,42 +57,58 @@
 				*_storeWindowWidth=displayMode.w;
 				*_storeWindowHeight=displayMode.h;
 			#else
-				if (*_storeWindowWidth!=0 && *_storeWindowHeight!=0){
-					printf("Using actual window size %dx%d\n",*_storeWindowWidth,*_storeWindowHeight);
-					_windowWidth=*_storeWindowWidth;
-					_windowHeight=*_storeWindowHeight;
-				}
-				mainWindow = SDL_CreateWindow( WINDOWNAME, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, _windowWidth, _windowHeight, SDL_WINDOW_SHOWN );
-				*_storeWindowWidth=_windowWidth;
-				*_storeWindowHeight=_windowHeight;
-				showErrorIfNull(mainWindow);
+				#if PLATFORM == PLAT_SWITCH
+					// For some reason, the other code doesn't work. I have to do it this way.
+					SDL_CreateWindowAndRenderer(1280, 720, 0, &mainWindow, &mainWindowRenderer);
+					*_storeWindowWidth=1280;
+					*_storeWindowHeight=720;
+					if (_windowWidth!=*_storeWindowWidth || _windowHeight!=*_storeWindowHeight){
+						printf("Switch force window size.\n");
+					}
+				#else
+					//#if PLATFORM == PLAT_COMPUTER
+					//	if (*_storeWindowWidth!=0 && *_storeWindowHeight!=0){
+					//		printf("Using actual window size %dx%d\n",*_storeWindowWidth,*_storeWindowHeight);
+					//		_windowWidth=*_storeWindowWidth;
+					//		_windowHeight=*_storeWindowHeight;
+					//	}
+					//#endif
+					mainWindow = SDL_CreateWindow( WINDOWNAME, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, _windowWidth, _windowHeight, SDL_WINDOW_SHOWN );
+					*_storeWindowWidth=_windowWidth;
+					*_storeWindowHeight=_windowHeight;
+					showErrorIfNull(mainWindow);
+				#endif
 			#endif
-			if (USEVSYNC){
-				mainWindowRenderer = SDL_CreateRenderer( mainWindow, -1, SDL_RENDERER_PRESENTVSYNC);
-			}else{
-				mainWindowRenderer = SDL_CreateRenderer( mainWindow, -1, SDL_RENDERER_ACCELERATED);
+			if (mainWindowRenderer==NULL){
+				if (USEVSYNC){
+					mainWindowRenderer = SDL_CreateRenderer( mainWindow, -1, SDL_RENDERER_PRESENTVSYNC);
+				}else{
+					mainWindowRenderer = SDL_CreateRenderer( mainWindow, -1, SDL_RENDERER_ACCELERATED);
+				}
+				showErrorIfNull(mainWindowRenderer);
 			}
-			showErrorIfNull(mainWindowRenderer);
 			IMG_Init( IMG_INIT_PNG );
 			IMG_Init( IMG_INIT_JPG );
 			SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
 			SDL_SetRenderDrawBlendMode(mainWindowRenderer,SDL_BLENDMODE_BLEND);
 
-
-			// Set a solid white icon.
-			SDL_Surface* tempIconSurface;
-			Uint16* _surfacePixels = malloc(sizeof(Uint16)*16*16);
-			char i, j;
-			for (i=0;i<16;++i){
-				for (j=0;j<16;++j){
-					_surfacePixels[i*16+j]=0xffff;
+			#if SUBPLATFORM == PLAT_COMPUTER
+				// Set a solid white icon.
+				SDL_Surface* tempIconSurface;
+				Uint16* _surfacePixels = malloc(sizeof(Uint16)*16*16);
+				char i, j;
+				for (i=0;i<16;++i){
+					for (j=0;j<16;++j){
+						_surfacePixels[i*16+j]=0xffff;
+					}
 				}
-			}
-			tempIconSurface = SDL_CreateRGBSurfaceFrom(_surfacePixels,16,16,16,16*2,0x0f00,0x00f0,0x000f,0xf000);
-			SDL_SetWindowIcon(mainWindow, tempIconSurface);
-			SDL_FreeSurface(tempIconSurface);
-			free(_surfacePixels);
-
+				tempIconSurface = SDL_CreateRGBSurfaceFrom(_surfacePixels,16,16,16,16*2,0x0f00,0x00f0,0x000f,0xf000);
+				SDL_SetWindowIcon(mainWindow, tempIconSurface);
+				SDL_FreeSurface(tempIconSurface);
+				free(_surfacePixels);
+			#endif
+			_generalGoodRealScreenWidth=*_storeWindowWidth;
+			_generalGoodRealScreenHeight=*_storeWindowHeight;
 		#elif RENDERER == REND_VITA2D
 			vita2d_init();
 			*_storeWindowWidth=960;
@@ -109,8 +126,6 @@
 		#else
 			#error Hi, Nathan here. I have to make graphics init function for this renderer. RENDERER
 		#endif
-		_generalGoodRealScreenWidth=*_storeWindowWidth;
-		_generalGoodRealScreenHeight=*_storeWindowHeight;
 	}
 
 	void startDrawing(){

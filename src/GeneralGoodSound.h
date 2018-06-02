@@ -69,6 +69,8 @@
 		#elif SOUNDPLAYER == SND_VITA
 			// Not needed?
 			return 1;
+		#else
+			return 0;
 		#endif
 	}
 	void quitAudio(){

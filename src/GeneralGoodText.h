@@ -23,7 +23,9 @@
 	#if TEXTRENDERER == TEXT_VITA2D
 		int fontSize=32;
 	#endif
-
+	#if TEXTRENDERER == TEXT_UNDEFINED
+		int fontSize = 32;
+	#endif
 	#if TEXTRENDERER == TEXT_DEBUG
 		typedef struct{
 			int x;
@@ -80,6 +82,7 @@
 				fontImage=NULL;
 			}
 			fontImage = vita2d_load_font_file(filename);
+		#elif TEXTRENDERER == TEXT_UNDEFINED
 		#endif
 	}
 
@@ -90,6 +93,8 @@
 			return vita2d_font_text_height(fontImage,scale,"a");
 		#elif TEXTRENDERER == TEXT_FONTCACHE
 			return floor(FC_GetRealHeight(fontImage));
+		#elif TEXTRENDERER == TEXT_UNDEFINED
+			return fontSize;
 		#endif
 	}
 
@@ -108,6 +113,8 @@
 			return vita2d_font_text_width(fontImage,scale,message);
 		#elif TEXTRENDERER == TEXT_FONTCACHE
 			return FC_GetWidth(fontImage,"%s",message);
+		#elif TEXTRENDERER == TEXT_UNDEFINED
+			return fontSize*strlen(message);
 		#endif
 	}
 	void goodDrawTextColoredAlpha(int x, int y, const char* text, float size, unsigned char r, unsigned char g, unsigned char b, unsigned char a){
