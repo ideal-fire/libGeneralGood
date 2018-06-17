@@ -180,7 +180,7 @@
 			nathanLoadSoundEffect(_tempReturn,filepath);
 			return _tempReturn;
 		#elif SOUNDPLAYER == SND_VITA
-			return _mlgsnd_loadAudio(filepath,0,1);
+			return _mlgsnd_loadAudioFilename(filepath,0,1);
 		#elif SOUNDPLAYER == SND_NONE
 			return NULL;
 		#endif
@@ -197,11 +197,12 @@
 			nathanLoadMusic(_tempReturn,filepath,1);
 			return _tempReturn;
 		#elif SOUNDPLAYER == SND_VITA
-			return mlgsnd_loadMusic(filepath);
+			return mlgsnd_loadMusicFilename(filepath);
 		#elif SOUNDPLAYER == SND_NONE
 			return NULL;
 		#endif
 	}
+
 	void pauseMusic(CROSSPLAYHANDLE _passedHandle){
 		#if SOUNDPLAYER == SND_SDL
 			Mix_PauseMusic();

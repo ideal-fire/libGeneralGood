@@ -16,6 +16,13 @@
 	#define INCLUDETESTCODE 1
 #endif
 
+#define SNDPLAT_VITA 1
+#define SNDPLAT_LINUX 2
+#if __gnu_linux__
+	#define SNDPLATFORM SNDPLAT_LINUX
+#else
+	#define SNDPLATFORM SNDPLAT_VITA
+#endif
 
 #include <stdint.h>
 #include <math.h>
@@ -23,10 +30,13 @@
 // memset and memcpy
 #include <string.h>
 
-#include <psp2/ctrl.h>
-#include <psp2/audioout.h>
-#include <psp2/kernel/processmgr.h>
-#include <psp2/kernel/threadmgr.h>
+#if SNDPLATFORM == SNDPLAT_VITA
+	#include <psp2/ctrl.h>
+	#include <psp2/audioout.h>
+	#include <psp2/kernel/processmgr.h>
+	#include <psp2/kernel/threadmgr.h>
+	#include <vitasdk.h>
+#endif
 
 #include <ogg/ogg.h>
 #include <vorbis/codec.h>
@@ -36,7 +46,9 @@
 
 #include <samplerate.h>
 
-#if INCLUDETESTCODE
+#include "legarchive.h"
+
+#if INCLUDETESTCODE && SNDPLATFORM == SNDPLAT_VITA
 	#include "debugScreen.h"
 	#define printf psvDebugScreenPrintf
 #endif
@@ -69,7 +81,7 @@ _mlgsnd_disposeMusicMainStruct
 #define FILE_FORMAT_OGG 1
 #define FILE_FORMAT_MP3 2
 // Planned
-#define FILE_FORMAT_WAV 2
+#define FILE_FORMAT_WAV 3
 
 #define SHORT_SYNC_DELAY_MICRO 10000
 
@@ -87,6 +99,76 @@ _mlgsnd_disposeMusicMainStruct
 #define STREAMSTATUS_DONTSTREAM 2
 #define STREAMSTATUS_MINISTREAM 3 // Streams until it reaches the end of the allocated buffers
 //#define STREAMSTATUS_DONESTREAMING 4 // Done with ministream
+
+#if SNDPLATFORM == SNDPLAT_LINUX
+	#include <pthread.h>
+	//#include <clock.h>
+
+	// usleep
+	#include <unistd.h>
+
+	#define sceKernelDelayThread usleep
+	
+	#define SceCtrlData void*
+	#define SCE_CTRL_SQUARE 1
+	#define SceUID pthread_t*
+	#define SceSize int
+	#define SceUInt unsigned int
+	#define SceAudioOutMode signed int
+
+	#define SCE_AUDIO_OUT_MODE_MONO 0
+	#define SCE_AUDIO_OUT_MODE_STEREO 0
+	#define SCE_AUDIO_OUT_PORT_TYPE_MAIN 0
+	#define SCE_AUDIO_VOLUME_FLAG_L_CH 0
+	#define SCE_AUDIO_VOLUME_FLAG_R_CH 0
+	#define SCE_AUDIO_OUT_MAX_VOL 500
+
+	int sceAudioOutOpenPort(int _a, int _b, int _c, int _d){
+		return 0;
+	}
+	int sceAudioOutSetConfig(int _a, int _b, int _c, int _d){
+		return 0;
+	}
+	void sceAudioOutReleasePort(int _a){}
+	void sceAudioOutSetVolume(int _a, int _b, int _c[2]){}
+	void sceKernelExitDeleteThread(int _a){pthread_exit(NULL);}
+	char wasJustPressed(void* bla,int _passedValue){
+		return 0;
+	}
+	void sceKernelWaitThreadEnd(pthread_t* happy, int* _a, int* _b){
+		pthread_join(*happy,NULL);
+	}
+	void psvDebugScreenInit() {}
+	void sceCtrlPeekBufferPositive() {};
+	int getTicks(){
+		struct timespec _myTime;
+		clock_gettime(CLOCK_MONOTONIC, &_myTime);
+		return _myTime.tv_nsec/1000000;
+	}
+	int _lastOutputTicks=0;
+	int sceAudioOutOutput(int _a, void* _b){
+		int _newOutputTicks = getTicks();
+		if (_lastOutputTicks!=0){
+			//100
+			if (_newOutputTicks<_lastOutputTicks+100){
+				usleep(((_lastOutputTicks+100)-_newOutputTicks)*1000);
+			}
+		}
+		return 0;
+	}
+	int mlgsnd_soundPlayingThread(SceSize args, void *argp);
+	void* _soundThreadPthreadWrapper(void* _argument){
+		printf("before %p\n",_argument);
+		mlgsnd_soundPlayingThread(1,_argument);
+		return NULL;
+	}
+	//SceUID mySoundPlayingThreadID = sceKernelCreateThread("SOUNDPLAY", mlgsnd_soundPlayingThread, 0, 0x10000, 0, 0, NULL);
+	//pthread_t* sceKernelCreateThread(){
+	//	pthread_t* _returnThread = malloc(sizeof(pthread_t));
+	//	pthread_create(_returnThread,NULL,_soundThreadPthreadWrapper,NULL);
+	//	return _returnThread;
+	//}
+#endif
 
 typedef struct{
 	void* mainAudioStruct; // malloc'd and needs a free function
@@ -122,6 +204,7 @@ typedef struct{
 
 	FILE* _internalFilePointer; // Do not mess with normally please
 }NathanAudio;
+
 int lastConverterError=0;
 signed char haveInitMpg123=0;
 
@@ -133,6 +216,49 @@ signed char haveInitMpg123=0;
 
 // TODO - Try downscaling high sample rate
 	// Pretty sure my 125% buffer system will break it.
+
+size_t oggReadCallback(void* ptr, size_t size, size_t nmemb, void* datasource){
+	//printf("%d;%d\n",size,nmemb);
+	legArchiveFile* _passedFile = (legArchiveFile*)datasource;
+	if (_passedFile->internalPosition+(size*nmemb)>=_passedFile->totalLength){
+		//printf("%d;%d\n",size,nmemb);
+		nmemb = (_passedFile->totalLength-_passedFile->internalPosition)/size;
+		
+		//printf("restirct to %d\n",nmemb);
+	}
+	size_t _readElements = fread(ptr,size,nmemb,((legArchiveFile*)datasource)->fp);
+	_passedFile->internalPosition += size*_readElements;
+	return _readElements;
+}
+int oggCloseCallback(void *datasource){
+	fclose(((legArchiveFile*)datasource)->fp);
+	free(datasource);
+	return 0;
+}
+long oggTellCallback(void *datasource){
+	return ((legArchiveFile*)datasource)->internalPosition;
+}
+int oggSeekCallback(void *datasource, ogg_int64_t offset, int whence){
+	legArchiveFile* _passedFile = (legArchiveFile*)datasource;
+	if (whence==SEEK_SET){
+		printf("set %d;%d\n",offset,_passedFile->totalLength);
+		fseek(_passedFile->fp,_passedFile->internalPosition*-1+offset,SEEK_CUR);
+		_passedFile->internalPosition=offset;
+	}else if (whence==SEEK_CUR){
+		printf("cur %d\n",offset);
+		if (_passedFile->internalPosition+offset>_passedFile->totalLength){
+			printf("too long.");
+		}
+		fseek(_passedFile->fp,offset,SEEK_CUR);
+		_passedFile->internalPosition+=offset;
+	}else if (whence==SEEK_END){
+		printf("end %d\n",offset);
+		fseek(_passedFile->fp,_passedFile->totalLength-_passedFile->internalPosition+offset,SEEK_CUR);
+		_passedFile->internalPosition=_passedFile->totalLength+offset;
+	}
+	return 0;
+}
+
 
 signed char mlgsnd_getNextBufferIndex(NathanAudio* _passedAudio, signed char _audioBufferSlot){
 	_audioBufferSlot++;
@@ -264,7 +390,7 @@ long mlgsnd_getBigFloatSrcSize(NathanAudio* _passedAudio){
 	return mlgsnd_getFloatSourceSize(_passedAudio)*BIGBUFFERSCALE;
 }
 
-#if !defined(PLATFORM)
+#if !defined(PLATFORM) && SNDPLATFORM != SNDPLAT_LINUX
 int getTicks(){
 	return  (sceKernelGetProcessTimeWide()/1000);
 }
@@ -424,10 +550,11 @@ void _mlgsnd_disposeMusicMainStruct(NathanAudio* _passedAudio){
 		ov_clear(_passedAudio->mainAudioStruct);
 	}else if (_passedAudio->fileFormat==FILE_FORMAT_MP3){
 		mpg123_delete(*((mpg123_handle**)_passedAudio->mainAudioStruct));
+		fclose(_passedAudio->_internalFilePointer);
 	}
 }
 void mlgsnd_freeMusic(NathanAudio* _passedAudio){
-	if (_passedAudio->quitStatus == NAUDIO_QUITSTATUS_FREED){ // Avoid audio double free
+	if (_passedAudio->quitStatus == NAUDIO_QUITSTATUS_FREED){ // Avoid audio double free. Actually, this line is useless and will still crash on double free.
 		return;
 	}
 	// Don't free playing music
@@ -539,8 +666,9 @@ void _mlgsnd_waitWhilePaused(NathanAudio* _passedAudio){
 }
 
 int mlgsnd_soundPlayingThread(SceSize args, void *argp){
-	//printf("====\n");
-	argp = *((void***)argp);
+	#if SNDPLATFORM == SNDPLAT_VITA
+		argp = *((void***)argp);
+	#endif
 	NathanAudio* _passedAudio=(((void**)argp)[0]);
 	int _currentPort = (int)(((void**)argp)[1]);
 	free(argp);
@@ -623,10 +751,10 @@ int mlgsnd_soundPlayingThread(SceSize args, void *argp){
 	return 0;
 }
 
-NathanAudio* _mlgsnd_loadAudio(char* filename, char _passedShouldLoop, char _passedShouldStream){
+NathanAudio* _mlgsnd_loadAudioFILE(legArchiveFile _passedFile, char _passedFileFormat, char _passedShouldLoop, char _passedShouldStream){
 	NathanAudio* _returnAudio = malloc(sizeof(NathanAudio));
 
-	if (strlen(filename)>=4 && strcmp(&(filename[strlen(filename)-4]),".mp3")==0){
+	if (_passedFileFormat==FILE_FORMAT_MP3){
 		_returnAudio->fileFormat = FILE_FORMAT_MP3;
 
 		int _lastMpg123Error;
@@ -644,7 +772,11 @@ NathanAudio* _mlgsnd_loadAudio(char* filename, char _passedShouldLoop, char _pas
 		_returnAudio->mainAudioStruct = malloc(sizeof(mpg123_handle*));
 		*((mpg123_handle**)_returnAudio->mainAudioStruct)=_newHandle;
 
-		if (mpg123_open(*((mpg123_handle**)_returnAudio->mainAudioStruct),filename)!=MPG123_OK){
+		if (_passedFile.fp==NULL){
+			printf("bad.\n");
+		}
+
+		if (mpg123_open_fd(*((mpg123_handle**)_returnAudio->mainAudioStruct),fileno(_passedFile.fp))!=MPG123_OK){
 			printf("open error for mpg123.\n");
 			return NULL;
 		}
@@ -656,23 +788,39 @@ NathanAudio* _mlgsnd_loadAudio(char* filename, char _passedShouldLoop, char _pas
 		if (_lastMpg123Error!=MPG123_OK){
 			printf("error, %d;%s\n",_lastMpg123Error,mpg123_plain_strerror(_lastMpg123Error));
 		}
-
-	}else if (strlen(filename)>=4 && strcmp(&(filename[strlen(filename)-4]),".wav")==0){
-	}else{
+	}else if (_passedFileFormat == FILE_FORMAT_OGG){
 		OggVorbis_File myVorbisFile;
-		FILE* fp = fopen(filename,"r");
-		int _possibleErrorCode = ov_open(fp, &myVorbisFile, NULL, 0);
+		int _possibleErrorCode;
+		if (_passedFile.totalLength!=0){
+
+			ov_callbacks myCallbacks;
+			myCallbacks.read_func = oggReadCallback;
+			myCallbacks.seek_func = oggSeekCallback;
+			myCallbacks.close_func = oggCloseCallback;
+			myCallbacks.tell_func = oggTellCallback;
+	
+			legArchiveFile* _toPass = malloc(sizeof(legArchiveFile));
+			*_toPass = _passedFile;
+	
+			//int _possibleErrorCode = ov_open(_passedFile.fp, &myVorbisFile, NULL, 0);
+			_possibleErrorCode = ov_open_callbacks(_toPass, &myVorbisFile, NULL, 0,myCallbacks);
+		}else{
+			_possibleErrorCode = ov_open(_passedFile.fp, &myVorbisFile, NULL, 0);
+		}
 		if(_possibleErrorCode != 0){
-			fclose(fp);
+			fclose(_passedFile.fp);
 			printf("open not worked!\n");
 			printf("Error: %d;%s",_possibleErrorCode,getErrorName(_possibleErrorCode));
 			return NULL;
 		}
 		_returnAudio->mainAudioStruct = malloc(sizeof(OggVorbis_File));
-		_returnAudio->_internalFilePointer = fp;
 		*((OggVorbis_File*)(_returnAudio->mainAudioStruct)) = myVorbisFile;
 		_returnAudio->fileFormat = FILE_FORMAT_OGG;
+	}else{
+		printf("Bad file format %d\n",_passedFileFormat);
+		return NULL;
 	}
+	_returnAudio->_internalFilePointer = _passedFile.fp;
 
 	_returnAudio->quitStatus=NAUDIO_QUITSTATUS_PREPARING;
 	_returnAudio->isFadingOut=0;
@@ -763,11 +911,37 @@ NathanAudio* _mlgsnd_loadAudio(char* filename, char _passedShouldLoop, char _pas
 	return _returnAudio;
 }
 
-NathanAudio* mlgsnd_loadMusic(char* filename){
-	return _mlgsnd_loadAudio(filename,1,1);
+NathanAudio* _mlgsnd_loadAudioFilename(char* _passedFilename, char _passedShouldLoop, char _passedShouldStream){
+	char _foundFileFormat = FILE_FORMAT_NONE;
+	if (strlen(_passedFilename)>=4 && strcmp(&(_passedFilename[strlen(_passedFilename)-4]),".mp3")==0){
+		_foundFileFormat = FILE_FORMAT_MP3;
+	}else if (strlen(_passedFilename)>=4 && strcmp(&(_passedFilename[strlen(_passedFilename)-4]),".wav")==0){
+		// Not yet supported
+		//_foundFileFormat = FILE_FORMAT_WAV;
+	}else if (strlen(_passedFilename)>=4 && strcmp(&(_passedFilename[strlen(_passedFilename)-4]),".ogg")==0){
+		_foundFileFormat = FILE_FORMAT_OGG;
+	}
+	if (_foundFileFormat!=FILE_FORMAT_NONE){
+		legArchiveFile _passFile;
+		_passFile.fp = fopen(_passedFilename,"r");
+		_passFile.totalLength=0;
+		return _mlgsnd_loadAudioFILE(_passFile, _foundFileFormat, _passedShouldLoop, _passedShouldStream);
+	}else{
+		return NULL;
+	}
 }
-NathanAudio* mlgsnd_loadSound(char* filename){
-	return _mlgsnd_loadAudio(filename,0,0);
+
+NathanAudio* mlgsnd_loadMusicFilename(char* filename){
+	return _mlgsnd_loadAudioFilename(filename,1,1);
+}
+NathanAudio* mlgsnd_loadSoundFilename(char* filename){
+	return _mlgsnd_loadAudioFilename(filename,0,0);
+}
+NathanAudio* mlgsnd_loadMusicFILE(legArchiveFile _passedFile, char _passedFileFormat){
+	return _mlgsnd_loadAudioFILE(_passedFile,_passedFileFormat,1,1);
+}
+NathanAudio* mlgsnd_loadSoundFILE(legArchiveFile _passedFile, char _passedFileFormat){
+	return _mlgsnd_loadAudioFILE(_passedFile,_passedFileFormat,0,0);
 }
 
 char _mlgsnd_initPort(NathanAudio* _passedAudio){
@@ -803,13 +977,6 @@ void mlgsnd_play(NathanAudio* _passedAudio){
 	}
 	// We just used the volume variable
 	_passedAudio->lastVolume = _passedAudio->volume;
-	// Initialize sound playing thread, but don't start it.
-	SceUID mySoundPlayingThreadID = sceKernelCreateThread("SOUNDPLAY", mlgsnd_soundPlayingThread, 0, 0x10000, 0, 0, NULL);
-	_passedAudio->playerThreadId = mySoundPlayingThreadID;
-
-	void** _newArgs = malloc(sizeof(void*)*2);
-	_newArgs[0]=_passedAudio;
-	_newArgs[1]=(void*)(_passedAudio->audioPort);
 
 	// Set this flag as late as possible
 	_passedAudio->quitStatus = NAUDIO_QUITSTATUS_PLAYING;
@@ -817,8 +984,20 @@ void mlgsnd_play(NathanAudio* _passedAudio){
 	// Do it before we start playing
 	++_passedAudio->totalPlaying;
 
-	// Start sound thread
-	sceKernelStartThread(_passedAudio->playerThreadId,sizeof(void**),&_newArgs);
+	// Arguments for our new thread
+	void** _newArgs = malloc(sizeof(void*)*2);
+	_newArgs[0]=_passedAudio;
+	_newArgs[1]=(void*)(_passedAudio->audioPort);
+	#if SNDPLATFORM == SNDPLAT_VITA
+		// Initialize sound playing thread, but don't start it.
+		SceUID mySoundPlayingThreadID = sceKernelCreateThread("SOUNDPLAY", mlgsnd_soundPlayingThread, 0, 0x10000, 0, 0, NULL);
+		_passedAudio->playerThreadId = mySoundPlayingThreadID;
+		// Start sound thread
+		sceKernelStartThread(_passedAudio->playerThreadId,sizeof(void**),&_newArgs);
+	#elif SNDPLATFORM == SNDPLAT_LINUX
+		_passedAudio->playerThreadId = malloc(sizeof(pthread_t));
+		pthread_create(_passedAudio->playerThreadId,NULL,_soundThreadPthreadWrapper,_newArgs);
+	#endif
 }
 
 #if INCLUDETESTCODE==1
@@ -833,18 +1012,39 @@ void printAudioDataStart(NathanAudio* _passedAudio, signed char _whichBuffer){
 	}
 	printf("\n");
 }
-char wasJustPressed(SceCtrlData ctrl, int _possibleControl){
-	if ((ctrl.buttons & _possibleControl) && !(lastCtrl.buttons & _possibleControl)){
-		return 1;
+#if SNDPLATFORM == SNDPLAT_VITA
+	char wasJustPressed(SceCtrlData ctrl, int _possibleControl){
+		if ((ctrl.buttons & _possibleControl) && !(lastCtrl.buttons & _possibleControl)){
+			return 1;
+		}
+		return 0;
 	}
-	return 0;
-}
+#endif
 void printGuide(){
 	printf("Right - Swap sound filename\nLeft - Rewind\nDown - Toggle first time flag\nTriangle - Load\nSquare - Free\nCircle - Stop\nX - Play\n\n");
 }
+//signed char checkFileExist(const char* location){
+//	SceUID fileHandle = sceIoOpen(location, SCE_O_RDONLY, 0777);
+//	if (fileHandle < 0){
+//		return 0;
+//	}else{
+//		sceIoClose(fileHandle);
+//		return 1;
+//	}
+//}
+//void directoryTest(char* _path){
+//	int j;
+//	int _start = getTicks();
+//	for (j=0;j<100;++j){
+//		checkFileExist(_path);
+//	}
+//	int _total = (getTicks()-_start);
+//	printf("Total:%d\n",_total);
+//	printf("Avg: %d\n",_total/100);
+//}
 int main(void) {
 	psvDebugScreenInit();
-
+	// TODO - To fix load dictionary loading, just put the dictionary in a seperate file.
 	if (sizeof(float)!=4 || sizeof(short)!=2 || (sizeof(int)>sizeof(void*) || (sizeof(short)>sizeof(float)))){
 		printf("Type sizes wrong, f;d, %d;%d\n",sizeof(float),sizeof(short));
 	}
@@ -854,8 +1054,60 @@ int main(void) {
 	//
 	////_debugFilterPort=_theGoodBGM->audioPort;
 
-	//NathanAudio* _theGoodBGM2 = _mlgsnd_loadAudio("ux0:data/HIGURASHI/Games/umineko 4-converted/SE/11900015.ogg",0,1);
-	NathanAudio* _theGoodBGM2 = _mlgsnd_loadAudio("ux0:data/SOUNDTEST/matt.ogg",1,1);
+	//int j;
+	////for (j=0;j<2;++j){
+	//int _start = getTicks();
+	////for (j=0;j<20;++j){
+	//	//checkFileExist("ux0:data/SOUNDTEST/438224");
+	//	printf("%d\n",checkFileExist("ux0:data/OneThousand/438224"));
+	////}
+	//printf("Total:%d\n",(getTicks()-_start));
+	////}
+	////aadbs.ogg
+	//_start = getTicks();
+	////for (j=0;j<20;++j){
+	//	//checkFileExist("ux0:data/SOUNDTEST/438224");
+	//	printf("%d\n",checkFileExist("ux0:data/OneThousand/aadbs.ogg"));
+	////}
+	//printf("Total:%d\n",(getTicks()-_start));
+
+	//int j;
+	////for (j=0;j<2;++j){
+	//int _start = getTicks();
+	////for (j=0;j<20;++j){
+	//	//checkFileExist("ux0:data/SOUNDTEST/438224");
+	//	printf("%d\n",checkFileExist("ux0:data/OneThousand/438224"));
+	////}
+	//printf("Total:%d\n",(getTicks()-_start));
+	////}
+	////aadbs.ogg
+	//_start = getTicks();
+	////for (j=0;j<20;++j){
+	//	//checkFileExist("ux0:data/SOUNDTEST/438224");
+	//	printf("%d\n",checkFileExist("ux0:data/OneThousand/aadbs.ogg"));
+	////}
+	//printf("Total:%d\n",(getTicks()-_start));
+	printf("bla\n");
+	#if SNDPLATFORM == SNDPLAT_VITA
+		legArchive soundarch = loadLegArchive("ux0:data/SOUNDTEST/oggarchive");
+	#elif SNDPLATFORM == SNDPLAT_LINUX
+		legArchive soundarch = loadLegArchive("./oggarchive");
+	#endif
+	//
+	////https://www.mpg123.de/api/group__mpg123__lowio.shtml
+	//
+	////NathanAudio* _theGoodBGM2 = _mlgsnd_loadAudio("ux0:data/HIGURASHI/Games/umineko 4-converted/SE/11900015.ogg",0,1);
+	#if SNDPLATFORM == SNDPLAT_VITA
+		//NathanAudio* _theGoodBGM2 = _mlgsnd_loadAudioFilename("ux0:data/SOUNDTEST/battlerika.ogg",1,1);
+		printf("a\n");
+		NathanAudio* _theGoodBGM2 = _mlgsnd_loadAudioFILE(getAdvancedFile(soundarch,"msys20.ogg"),FILE_FORMAT_OGG,1,1);
+		printf("b\n");
+	#elif SNDPLATFORM == SNDPLAT_LINUX
+		//NathanAudio* _theGoodBGM2 = _mlgsnd_loadAudioFilename("./BGM1.mp3",1,1);
+		printf("a\n");
+		NathanAudio* _theGoodBGM2 = _mlgsnd_loadAudioFILE(getAdvancedFile(soundarch,"msys22.ogg"),FILE_FORMAT_OGG,1,1);
+		printf("b\n");
+	#endif
 	mlgsnd_setVolume(_theGoodBGM2,50);
 	mlgsnd_play(_theGoodBGM2);
 	//mlgsnd_freeMusic(_theGoodBGM2);
@@ -894,13 +1146,30 @@ int main(void) {
 	while (1){
 		SceCtrlData ctrl;
 		sceCtrlPeekBufferPositive(0, &ctrl, 1);
-		printf("a\n");
-		if (wasJustPressed(ctrl,SCE_CTRL_SQUARE)){
-			if (_theGoodBGM2!=NULL){
-				printf("Free sound effect.\n");
-				mlgsnd_freeMusic(_theGoodBGM2);
-			}
-		}
+		//printf("a\n");
+
+		//#if SNDPLATFORM == SNDPLAT_LINUX
+		//	char _command[5];
+		//	fgets(_command,5,stdin);
+		//	_command[strlen(_command)-1]='\0';
+		//	printf("%s\n",_command);
+		//	if (_command[0]=='s'){
+		//		printf("attmeptfree.\n");
+		//		printf("Stop sound effect.\n");
+		//		mlgsnd_stopMusic(_theGoodBGM2);
+		//		printf("Free sound effect.\n");
+		//		mlgsnd_freeMusic(_theGoodBGM2);
+		//	}
+		//#endif
+//
+		//if (wasJustPressed(ctrl,SCE_CTRL_SQUARE)){
+		//	if (_theGoodBGM2!=NULL){
+		//		printf("Stop sound effect.\n");
+		//		mlgsnd_stopMusic(_theGoodBGM2);
+		//		printf("Free sound effect.\n");
+		//		mlgsnd_freeMusic(_theGoodBGM2);
+		//	}
+		//}
 		/*
 
 		if (wasJustPressed(ctrl,SCE_CTRL_RIGHT)){
@@ -1004,8 +1273,9 @@ int main(void) {
 		sceKernelDelayThread(10000);
 	}
 
-	
-	sceKernelExitProcess(0);
+	#if SNDPLATFORM == SNDPLAT_VITA
+		sceKernelExitProcess(0);
+	#endif
 	return 0;
 }
 #endif

@@ -10,6 +10,7 @@
 	#include <string.h>
 	#include <stdlib.h>
 	#include <unistd.h>
+	#include <time.h>
 	// For stuff like uint8_t
 	#include <stdint.h>
 	
@@ -111,6 +112,10 @@
 			} else {
 			    return GetTickCount();
 			}
+		#else
+			struct timespec _myTime;
+			clock_gettime(CLOCK_MONOTONIC, &_myTime);
+			return _myTime.tv_nsec/1000000;
 		#endif
 	}
 
@@ -225,6 +230,7 @@
 		#else
 			return 0;
 		#endif
+		return 1;
 	}
 
 	CROSSDIR openDirectory(const char* filepath){

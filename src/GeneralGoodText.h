@@ -1,4 +1,4 @@
-#if TEXTRENDERER != TEXT_UNDEFINED
+
 #ifndef GENERALGOODTEXTHEADER
 #define GENERALGOODTEXTHEADER
 	// Text Stuff
@@ -9,6 +9,8 @@
 		#define CrossFont CrossTexture
 	#elif TEXTRENDERER == TEXT_VITA2D
 		#define CrossFont vita2d_font
+	#elif TEXTRENDERER == TEXT_UNDEFINED
+		#define CrossFont int
 	#endif
 
 	CrossFont* fontImage=NULL;
@@ -162,5 +164,4 @@
 		#endif
 	}
 
-#endif
 #endif

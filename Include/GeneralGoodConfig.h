@@ -56,7 +56,7 @@
 		#define PRESET PRE_VITA
 	#elif _3DS
 		#define PRESET PRE_3DS
-	#elif SWITCH
+	#elif __SWITCH__
 		#define PRESET PRE_SWITCH
 	#endif
 	#ifndef PRESET
