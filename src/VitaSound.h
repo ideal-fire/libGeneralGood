@@ -224,7 +224,7 @@ void fixLegArchiveFile(legArchiveFile* _passedFile){
 }
 
 size_t oggReadCallback(void* ptr, size_t size, size_t nmemb, void* datasource){
-	
+	//printf("read. %d;%d\n",size,nmemb);
 	legArchiveFile* _passedFile = (legArchiveFile*)datasource;
 	if (_passedFile->inArchive==1){
 		if (_passedFile->internalPosition+(size*nmemb)>=_passedFile->totalLength){
@@ -249,9 +249,14 @@ int oggCloseCallback(void *datasource){
 	return 0;
 }
 long oggTellCallback(void *datasource){
-	return ((legArchiveFile*)datasource)->internalPosition;
+	if (((legArchiveFile*)datasource)->inArchive){
+		return ((legArchiveFile*)datasource)->internalPosition;
+	}else{
+		return ftell(((legArchiveFile*)datasource)->fp);
+	}
 }
 int oggSeekCallback(void *datasource, ogg_int64_t offset, int whence){
+	//printf("seek\n");
 	legArchiveFile* _passedFile = (legArchiveFile*)datasource;
 	int _seekReturnValue;
 	if (_passedFile->inArchive){
@@ -276,6 +281,9 @@ int oggSeekCallback(void *datasource, ogg_int64_t offset, int whence){
 			if (_seekReturnValue==0){
 				_passedFile->internalPosition=_passedFile->totalLength+offset;
 			}
+		}else{
+			printf("Unknown seek request %d\n",whence);
+			_seekReturnValue=0;
 		}
 	}else{
 		_seekReturnValue = fseek(_passedFile->fp,offset,whence);
@@ -293,7 +301,8 @@ void mpgCloseCallback(void* _passedData){
 	oggCloseCallback(_passedData);
 }
 off_t mpgSeekCallback(void* _passedData, off_t offset, int whence){
-	return oggSeekCallback(_passedData,offset,whence);
+	oggSeekCallback(_passedData,offset,whence);
+	return oggTellCallback(_passedData);
 }
 
 signed char mlgsnd_getNextBufferIndex(NathanAudio* _passedAudio, signed char _audioBufferSlot){
@@ -308,7 +317,11 @@ int64_t _mlgsnd_getLengthInSamples(NathanAudio* _passedAudio){
 	if (_passedAudio->fileFormat == FILE_FORMAT_OGG){
 		return ov_pcm_total(_passedAudio->mainAudioStruct,-1);
 	}else if (_passedAudio->fileFormat == FILE_FORMAT_MP3){
-		return mpg123_length(*((mpg123_handle**)_passedAudio->mainAudioStruct));
+		int64_t _foundLength = mpg123_length(*((mpg123_handle**)_passedAudio->mainAudioStruct));
+		if (_foundLength==MPG123_ERR){
+			_foundLength=-1;
+		}
+		return _foundLength;
 	}else{
 		return 0;
 	}
@@ -905,6 +918,11 @@ NathanAudio* _mlgsnd_loadAudioFILE(legArchiveFile _passedFile, char _passedFileF
 	// How many buffers we would need if we were streaming
 	_returnAudio->numBuffers = ceil((_mlgsnd_getLengthInSamples(_returnAudio)*_returnAudio->usualConverterData.src_ratio)/(double)AUDIO_BUFFER_LENGTH);
 
+	if (_returnAudio->numBuffers<=0){
+		printf("ohnozies\n");
+		_returnAudio->numBuffers = STREAMING_BUFFERS+1;
+	}
+	
 	// If we could fit our streaming sound in just our swap buffers then don't stream
 	if (_returnAudio->numBuffers<=STREAMING_BUFFERS){
 		_returnAudio->myStreamStatus=STREAMSTATUS_MINISTREAM;
@@ -920,6 +938,7 @@ NathanAudio* _mlgsnd_loadAudioFILE(legArchiveFile _passedFile, char _passedFileF
 
 	// Malloc audio buffers depending on if we want streaming or not
 	_returnAudio->audioBuffers = malloc(sizeof(void*)*_returnAudio->numBuffers); // Array
+
 	// First buffer exception
 	_returnAudio->audioBuffers[0] = malloc(mlgsnd_getBigShortSrcDestSize(_returnAudio)); // Needs to be able to hold the 125% unscaled and 100% scaled. TODO - We can't know which one is bigger.
 	// Normal buffers
@@ -950,7 +969,6 @@ NathanAudio* _mlgsnd_loadAudioFILE(legArchiveFile _passedFile, char _passedFileF
 			mlgsnd_loadMoreData(_returnAudio,i,_returnAudio->unscaledSamples,mlgsnd_getShortSourceSize(_returnAudio));
 		}
 	}
-
 	return _returnAudio;
 }
 NathanAudio* _mlgsnd_loadAudioFilename(char* _passedFilename, char _passedShouldLoop, char _passedShouldStream){
@@ -1068,25 +1086,27 @@ void printAudioDataStart(NathanAudio* _passedAudio, signed char _whichBuffer){
 void printGuide(){
 	printf("Right - Swap sound filename\nLeft - Rewind\nDown - Toggle first time flag\nTriangle - Load\nSquare - Free\nCircle - Stop\nX - Play\n\n");
 }
-//signed char checkFileExist(const char* location){
-//	SceUID fileHandle = sceIoOpen(location, SCE_O_RDONLY, 0777);
-//	if (fileHandle < 0){
-//		return 0;
-//	}else{
-//		sceIoClose(fileHandle);
-//		return 1;
-//	}
-//}
-//void directoryTest(char* _path){
-//	int j;
-//	int _start = getTicks();
-//	for (j=0;j<100;++j){
-//		checkFileExist(_path);
-//	}
-//	int _total = (getTicks()-_start);
-//	printf("Total:%d\n",_total);
-//	printf("Avg: %d\n",_total/100);
-//}
+#if SNDPLATFORM == SNDPLAT_VITA
+	signed char checkFileExist(const char* location){
+		SceUID fileHandle = sceIoOpen(location, SCE_O_RDONLY, 0777);
+		if (fileHandle < 0){
+			return 0;
+		}else{
+			sceIoClose(fileHandle);
+			return 1;
+		}
+	}
+	void directoryTest(char* _path){
+		int j;
+		int _start = getTicks();
+		for (j=0;j<100;++j){
+			checkFileExist(_path);
+		}
+		int _total = (getTicks()-_start);
+		printf("Total:%d\n",_total);
+		printf("Avg: %d\n",_total/100);
+	}
+#endif
 int main(void) {
 	psvDebugScreenInit();
 	// TODO - To fix load dictionary loading, just put the dictionary in a seperate file.
@@ -1133,9 +1153,11 @@ int main(void) {
 	////}
 	//printf("Total:%d\n",(getTicks()-_start));
 	#if SNDPLATFORM == SNDPLAT_VITA
-		legArchive soundarch = loadLegArchive("ux0:data/SOUNDTEST/oggarchive");
+		//legArchive soundarch = loadLegArchive("ux0:data/SOUNDTEST/oggarchive");
+		//legArchive soundarch = loadLegArchive("ux0:data/HIGURASHI/Games/base_install-converted/SEArchive.legArchive");
+		//legArchive soundarch = loadLegArchive("uma0:data/HIGURASHI/games/SayaNoUta-converted/SEArchive.legArchive");
 	#elif SNDPLATFORM == SNDPLAT_LINUX
-		legArchive soundarch = loadLegArchive("./SEArchive.legArchive");
+		//legArchive soundarch = loadLegArchive("./uta");
 	#endif
 	//
 	////https://www.mpg123.de/api/group__mpg123__lowio.shtml
@@ -1144,13 +1166,19 @@ int main(void) {
 	#if SNDPLATFORM == SNDPLAT_VITA
 		//NathanAudio* _theGoodBGM2 = _mlgsnd_loadAudioFilename("ux0:data/SOUNDTEST/battlerika.ogg",1,1);
 		
-		//NathanAudio* _theGoodBGM2 = _mlgsnd_loadAudioFILE(getAdvancedFile(soundarch,"msys20.ogg"),FILE_FORMAT_OGG,1,1);
-		NathanAudio* _theGoodBGM2 = _mlgsnd_loadAudioFilename("ux0:data/SOUNDTEST/wa_038.ogg",0,1);
+		//NathanAudio* _theGoodBGM2 = _mlgsnd_loadAudioFILE(getAdvancedFile(soundarch,"music/s02.mp3"),FILE_FORMAT_MP3,1,1);
+		NathanAudio* _theGoodBGM2 = _mlgsnd_loadAudioFilename("ux0:data/s02.mp3",1,1);
+		//if (checkFileExist("ux0:data/HIGURASHI/Games/base_install-converted/SE/special/title.mp3")==0){
+		//	printf("grueiwre\n");
+		//}
+		//NathanAudio* _theGoodBGM2 = _mlgsnd_loadAudioFilename("ux0:data/SOUNDTEST/BGM1.mp3",1,1);
 	#elif SNDPLATFORM == SNDPLAT_LINUX
 		//NathanAudio* _theGoodBGM2 = _mlgsnd_loadAudioFilename("./BGM1.mp3",1,1);
 		
-		//NathanAudio* _theGoodBGM2 = _mlgsnd_loadAudioFILE(getAdvancedFile(soundarch,"aadst.ogg"),FILE_FORMAT_OGG,0,1);
-		NathanAudio* _theGoodBGM2 = _mlgsnd_loadAudioFilename("./wa_038.ogg",0,1);
+		//NathanAudio* _theGoodBGM2 = _mlgsnd_loadAudioFILE(getAdvancedFile(soundarch,"music/s02.mp3"),FILE_FORMAT_MP3,1,1);
+		NathanAudio* _theGoodBGM2 = _mlgsnd_loadAudioFilename("./s02.mp3",1,1);
+		
+		//NathanAudio* _theGoodBGM2 = _mlgsnd_loadAudioFilename("./wa_038.ogg",0,1);
 	#endif
 	mlgsnd_setVolume(_theGoodBGM2,50);
 	mlgsnd_play(_theGoodBGM2);
