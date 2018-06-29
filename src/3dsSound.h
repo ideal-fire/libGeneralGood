@@ -18,12 +18,13 @@
 
 #define BYTESPERSAMPLE 2
 
-#define MAXBUFFERSIZE 2000000
+#define MAXBUFFERSIZE 200000
 #define SINGLEOGGREAD 4096
 
 #define MUSICTYPE_NONE 0
 #define MUSICTYPE_OGG 1
 #define MUSICTYPE_WAV 2
+#define MUSICTYPE_MP3 3
 
 typedef struct{
 	void* _musicMainStruct; // Made with malloc, remember to free.
