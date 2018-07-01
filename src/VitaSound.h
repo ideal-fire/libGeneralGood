@@ -305,6 +305,10 @@ off_t mpgSeekCallback(void* _passedData, off_t offset, int whence){
 	return oggTellCallback(_passedData);
 }
 
+char mlgsndIsPlaying(NathanAudio* _passedAudio){
+	return !(_passedAudio->totalPlaying==0);
+}
+
 signed char mlgsnd_getNextBufferIndex(NathanAudio* _passedAudio, signed char _audioBufferSlot){
 	_audioBufferSlot++;
 	if (_audioBufferSlot==_passedAudio->numBuffers){

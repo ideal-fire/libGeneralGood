@@ -84,6 +84,20 @@
 			// Not needed?
 		#endif
 	}
+	/*char isAudioPlaying(CROSSPLAYHANDLE _passedHandle){
+		#if SOUNDPLAYER == SND_SDL
+			// TODO
+			return 0;
+		#elif SOUNDPLAYER == SND_SOLOUD
+			// TODO
+			return 0;
+		#elif SOUNDPLAYER == SND_3DS
+			// TODO
+			return 0;
+		#elif SOUNDPLAYER == SND_VITA
+			return mlgsndIsPlaying(_passedHandle);
+		#endif
+	}*/
 	int getMusicVolume(CROSSPLAYHANDLE _passedMusicHandle){
 		#if SOUNDPLAYER == SND_SDL
 			return Mix_VolumeMusic(-1);

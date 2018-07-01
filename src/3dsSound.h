@@ -20,6 +20,7 @@
 
 #define MAXBUFFERSIZE 200000
 #define SINGLEOGGREAD 4096
+#define STUPIDSOUNDLOADINGMAXBUFFER 20
 
 #define MUSICTYPE_NONE 0
 #define MUSICTYPE_OGG 1
@@ -28,8 +29,8 @@
 
 typedef struct{
 	void* _musicMainStruct; // Made with malloc, remember to free.
-	char* _musicMusicBuffer[10]; // Only 2 used normally. Up 10 for single buffer sound effects
-	ndspWaveBuf _musicWaveBuffer[10];
+	char* _musicMusicBuffer[STUPIDSOUNDLOADINGMAXBUFFER]; // Only 2 used normally. Up STUPIDSOUNDLOADINGMAXBUFFER for single buffer sound effects
+	ndspWaveBuf _musicWaveBuffer[STUPIDSOUNDLOADINGMAXBUFFER];
 	char _musicIsTwoBuffers; // For sound effects, this is the number of buffers.
 	unsigned char _musicChannel;
 	unsigned char _musicShoudLoop;
@@ -225,14 +226,14 @@ void nathanLoadSoundEffect(NathanMusic* _passedMusic, char* _filename){
 	}
 	_passedMusic->_musicShoudLoop=0;
 	int i;
-	for (i=0;i<10;i++){
+	for (i=0;i<STUPIDSOUNDLOADINGMAXBUFFER;i++){
 		_passedMusic->_musicIsTwoBuffers++; // With sound effect, this is number of buffers
 		_passedMusic->_musicMusicBuffer[i] = linearAlloc(MAXBUFFERSIZE);
 		if (nathannathanUpdateAudioBufferNathanMusic(_passedMusic,i)==1){
 			break;
 		}
 	}
-	for (i++;i<10;i++){
+	for (i++;i<STUPIDSOUNDLOADINGMAXBUFFER;i++){
 		_passedMusic->_musicMusicBuffer[i]=NULL;
 	}
 }

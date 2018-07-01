@@ -326,13 +326,29 @@
 	== CROSS PLATFORM FILE WRITING AND READING
 	==========================================================
 	*/
-	#if RENDERER == REND_SDL
+	#if PLATFORM == PLAT_VITA
+		typedef struct{
+			char* filename; // Malloc
+			int internalPosition;
+			FILE* fp;
+		}vitaFile;
+		#define CROSSFILE vitaFile
+
+		void _fixVitaFile(vitaFile* _passedFile){
+			fclose(_passedFile->fp);
+			_passedFile->fp = fopen(_passedFile->filename,"rb");
+			fseek(_passedFile->fp,_passedFile->internalPosition,SEEK_SET);
+		}
+	#elif RENDERER == REND_SDL
 		#define CROSSFILE SDL_RWops
 		#define CROSSFILE_START RW_SEEK_SET
 		#define CROSSFILE_CUR RW_SEEK_CUR
 		#define CROSSFILE_END RW_SEEK_END
 	#else
 		#define CROSSFILE FILE
+	#endif
+	// Defaults
+	#ifndef CROSSFILE_START
 		#define CROSSFILE_START SEEK_SET
 		#define CROSSFILE_CUR SEEK_CUR
 		#define CROSSFILE_END SEEK_END
@@ -360,7 +376,15 @@
 
 	// Returns number of elements read
 	size_t crossfread(void* buffer, size_t size, size_t count, CROSSFILE* stream){
-		#if RENDERER == REND_SDL
+		#if PLATFORM == PLAT_VITA
+			size_t _readElements = fread(buffer,size,count,stream->fp);
+			if (_readElements==0 && count!=0 && feof(stream->fp)==0){
+				_fixVitaFile(stream);
+				return crossfread(buffer,size,count,stream);
+			}
+			stream->internalPosition += size*_readElements;
+			return _readElements;
+		#elif RENDERER == REND_SDL
 			return SDL_RWread(stream,buffer,size,count);
 		#else
 			return fread(buffer,size,count,stream);
@@ -368,7 +392,14 @@
 	}
 
 	CROSSFILE* crossfopen(const char* filename, const char* mode){
-		#if RENDERER == REND_SDL
+		#if PLATFORM == PLAT_VITA
+			vitaFile* _returnFile = malloc(sizeof(vitaFile));
+			_returnFile->fp=fopen(filename,mode);
+			_returnFile->filename = malloc(strlen(filename)+1);
+				strcpy(_returnFile->filename,filename);
+			_returnFile->internalPosition=0;
+			return _returnFile;
+		#elif RENDERER == REND_SDL
 			return SDL_RWFromFile(filename,mode);
 		#else
 			return fopen(filename,mode);
@@ -378,7 +409,12 @@
 	// Returns 0 on success.
 	// Returns negative number of failure
 	int crossfclose(CROSSFILE* stream){
-		#if RENDERER == REND_SDL
+		#if PLATFORM == PLAT_VITA
+			fclose(stream->fp);
+			free(stream->filename);
+			free(stream);
+			return 0;
+		#elif RENDERER == REND_SDL
 			return SDL_RWclose(stream);
 		#else
 			return fclose(stream);
@@ -389,15 +425,48 @@
 	// For SDL, returns new position
 	// Otherwise, returns 0 when it works
 	int crossfseek(CROSSFILE* stream, long int offset, int origin){
-		#if RENDERER == REND_SDL
+		#if PLATFORM == PLAT_VITA
+			int _seekReturnValue;
+			//if (origin==CROSSFILE_START){
+			//	_seekReturnValue = fseek(stream->fp,offset,SEEK_SET);
+			//	if (_seekReturnValue==0){
+			//		stream->internalPosition=offset;
+			//	}
+			//}else if (origin==CROSSFILE_CUR){
+			//	_seekReturnValue = fseek(_passedFile->fp,offset,SEEK_CUR);
+			//}else if (origin==CROSSFILE_END){
+			//	_seekReturnValue = fseek(_passedFile->fp,offset,SEEK_END);
+			//}else{
+			//	_seekReturnValue=0;
+			//}
+			_seekReturnValue = fseek(stream->fp,offset,origin);
+			// If seek failed but it shouldn't have because we're not at the end of the file yet.
+			if (_seekReturnValue!=0 && feof(stream->fp)==0){
+				_fixVitaFile(stream);
+				return crossfseek(stream,offset,origin);
+			}else{
+				stream->internalPosition = ftell(stream->fp);
+			}
+			return 0;
+		#elif RENDERER == REND_SDL
 			return SDL_RWseek(stream,offset,origin);
 		#else
 			return fseek(stream,offset,origin);
 		#endif
 	}
 
+	// THIS DOES NOT DO EXACTLY WHAT IT SHOULD
+	int crossungetc(int c, CROSSFILE* stream){
+		if (crossfseek(stream,-1,CROSSFILE_CUR)==0){
+			return c;
+		}
+		return EOF;
+	}
+
 	long int crossftell(CROSSFILE* fp){
-		#if RENDERER == REND_SDL
+		#if PLATFORM == PLAT_VITA
+			return fp->internalPosition;
+		#elif RENDERER == REND_SDL
 			return crossfseek(fp,0,CROSSFILE_CUR);
 		#else
 			return ftell(fp);
@@ -413,13 +482,18 @@
 		return _readChar;
 	}
 
-	// No platform specific code here
 	char crossfeof(CROSSFILE* fp){
-		if (crossgetc(fp)==EOF){
-			return 1;
-		}
-		crossfseek(fp,-1,CROSSFILE_CUR);
-		return 0;
+		#if PLATFORM == PLAT_VITA
+			return feof(fp->fp);
+		#elif RENDERER == REND_SDL
+			if (crossgetc(fp)==EOF){
+				return 1;
+			}
+			crossfseek(fp,-1,CROSSFILE_CUR);
+			return 0;
+		#else
+			return feof(fp);
+		#endif
 	}
 
 	// Checks if the byte is the one for a newline
