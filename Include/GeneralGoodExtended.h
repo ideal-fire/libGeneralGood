@@ -1,28 +1,30 @@
 #ifndef GENERALGOODEXTENDED_H
 #define GENERALGOODEXTENDED_H
 
-#if PLATFORM != PLAT_VITA && PLATFORM != PLAT_3DS
+#if PLATFORM == PLAT_COMPUTER
 	enum SceCtrlPadButtons {
-		SCE_CTRL_SELECT      = 0,	//!< Select button.
-		SCE_CTRL_L3          = 1,	//!< L3 button.
-		SCE_CTRL_R3          = 2,	//!< R3 button.
-		SCE_CTRL_START       = 3,	//!< Start button.
-		SCE_CTRL_UP          = 4,	//!< Up D-Pad button.
-		SCE_CTRL_RIGHT       = 5,	//!< Right D-Pad button.
-		SCE_CTRL_DOWN        = 6,	//!< Down D-Pad button.
-		SCE_CTRL_LEFT        = 7,	//!< Left D-Pad button.
-		SCE_CTRL_LTRIGGER    = 8,	//!< Left trigger.
-		SCE_CTRL_RTRIGGER    = 9,	//!< Right trigger.
-		SCE_CTRL_L1          = 10,	//!< L1 button.
-		SCE_CTRL_R1          = 11,	//!< R1 button.
-		SCE_CTRL_TRIANGLE    = 12,	//!< Triangle button.
-		SCE_CTRL_CIRCLE      = 13,	//!< Circle button.
-		SCE_CTRL_CROSS       = 14,	//!< Cross button.
-		SCE_CTRL_SQUARE      = 15,	//!< Square button.
-		SCE_CTRL_INTERCEPTED = 16,  //!< Input not available because intercepted by another application
-		SCE_CTRL_VOLUP       = 17,	//!< Volume up button.
-		SCE_CTRL_VOLDOWN     = 18	//!< Volume down button.
-		//int SCE_TOUCH = 19;
+		SCE_CTRL_SELECT      = 0,
+		SCE_CTRL_L3          = 1,
+		SCE_CTRL_R3          = 2,
+		SCE_CTRL_START       = 3,
+		SCE_CTRL_UP          = 4,
+		SCE_CTRL_RIGHT       = 5,
+		SCE_CTRL_DOWN        = 6,
+		SCE_CTRL_LEFT        = 7,
+		SCE_CTRL_LTRIGGER    = 8,
+		SCE_CTRL_RTRIGGER    = 9,
+		SCE_CTRL_L1          = 10,
+		SCE_CTRL_R1          = 11,
+		SCE_CTRL_TRIANGLE    = 12,
+		SCE_CTRL_CIRCLE      = 13,
+		SCE_CTRL_CROSS       = 14,
+		SCE_CTRL_SQUARE      = 15,
+		SCE_CTRL_INTERCEPTED = 16,
+		SCE_CTRL_VOLUP       = 17,
+		SCE_CTRL_VOLDOWN     = 18,
+		SCE_TOUCH 			 = 19,
+		SCE_ANDROID_BACK	 = 20,
+		SCE_MOUSE_SCROLL	 = 21
 	};
 #endif
 #if PLATFORM == PLAT_VITA
@@ -70,9 +72,9 @@
 	#define SCE_CTRL_LEFT KEY_LEFT
 	#define SCE_CTRL_RIGHT KEY_RIGHT
 
-	#define possibleControlNumberType u64
+	#define ctrlDta u64
 #else
-	#define possibleControlNumberType int
+	#define ctrlDta int
 #endif
 
 extern char tempPathFixBuffer[256];
@@ -83,6 +85,10 @@ extern signed char InputValidity;
 
 extern int screenHeight;
 extern int screenWidth;
+
+extern int touchX;
+extern int touchY;
+extern int mouseScroll;
 
 // For FixPath argument
 #define TYPE_UNDEFINED 0
@@ -99,9 +105,10 @@ void generateDefaultDataDirectory(char** _dataDirPointer, char _useUma0);
 	void itoa(int _num, char* _buffer, int _uselessBase);
 #endif
 void makeDataDirectory();
-possibleControlNumberType isDown(int value);
-possibleControlNumberType wasJustPressedRegardless(possibleControlNumberType value);
-possibleControlNumberType wasJustPressed(possibleControlNumberType value);
-possibleControlNumberType wasJustReleased(possibleControlNumberType value);
+ctrlDta isDown(int value);
+ctrlDta wasJustPressedRegardless(ctrlDta value);
+ctrlDta wasJustPressed(ctrlDta value);
+ctrlDta wasJustReleased(ctrlDta value);
+char* getFixPathString(char type);
  
 #endif /* GENERALGOODEXTENDED_H */

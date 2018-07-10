@@ -25,6 +25,8 @@
 	//	#define EASYFIXCOORDS(x,y)
 	//#endif
 
+	extern void XOutFunction();
+
 	unsigned char isSkipping=0;
 	signed char InputValidity=1;
 	
@@ -41,10 +43,9 @@
 	#include <stdlib.h>
 	#include <unistd.h>
 
-	int SCE_TOUCH = 19;
-	int SCE_ANDROID_BACK = 20;
 	int touchX=-1;
 	int touchY=-1;
+	int mouseScroll=-1;
 
 	// Platform stuff
 	#if PLATFORM == PLAT_VITA
@@ -73,28 +74,30 @@
 		char getIsCiaBuild();
 	#endif
 
-	#if PLATFORM != PLAT_VITA
+	#if PLATFORM == PLAT_COMPUTER
 		enum SceCtrlPadButtons {
-			SCE_CTRL_SELECT      = 0,	//!< Select button.
-			SCE_CTRL_L3          = 1,	//!< L3 button.
-			SCE_CTRL_R3          = 2,	//!< R3 button.
-			SCE_CTRL_START       = 3,	//!< Start button.
-			SCE_CTRL_UP          = 4,	//!< Up D-Pad button.
-			SCE_CTRL_RIGHT       = 5,	//!< Right D-Pad button.
-			SCE_CTRL_DOWN        = 6,	//!< Down D-Pad button.
-			SCE_CTRL_LEFT        = 7,	//!< Left D-Pad button.
-			SCE_CTRL_LTRIGGER    = 8,	//!< Left trigger.
-			SCE_CTRL_RTRIGGER    = 9,	//!< Right trigger.
-			SCE_CTRL_L1          = 10,	//!< L1 button.
-			SCE_CTRL_R1          = 11,	//!< R1 button.
-			SCE_CTRL_TRIANGLE    = 12,	//!< Triangle button.
-			SCE_CTRL_CIRCLE      = 13,	//!< Circle button.
-			SCE_CTRL_CROSS       = 14,	//!< Cross button.
-			SCE_CTRL_SQUARE      = 15,	//!< Square button.
-			SCE_CTRL_INTERCEPTED = 16,  //!< Input not available because intercepted by another application
-			SCE_CTRL_VOLUP       = 17,	//!< Volume up button.
-			SCE_CTRL_VOLDOWN     = 18	//!< Volume down button.
-			//int SCE_TOUCH = 19;
+			SCE_CTRL_SELECT      = 0,
+			SCE_CTRL_L3          = 1,
+			SCE_CTRL_R3          = 2,
+			SCE_CTRL_START       = 3,
+			SCE_CTRL_UP          = 4,
+			SCE_CTRL_RIGHT       = 5,
+			SCE_CTRL_DOWN        = 6,
+			SCE_CTRL_LEFT        = 7,
+			SCE_CTRL_LTRIGGER    = 8,
+			SCE_CTRL_RTRIGGER    = 9,
+			SCE_CTRL_L1          = 10,
+			SCE_CTRL_R1          = 11,
+			SCE_CTRL_TRIANGLE    = 12,
+			SCE_CTRL_CIRCLE      = 13,
+			SCE_CTRL_CROSS       = 14,
+			SCE_CTRL_SQUARE      = 15,
+			SCE_CTRL_INTERCEPTED = 16,
+			SCE_CTRL_VOLUP       = 17,
+			SCE_CTRL_VOLDOWN     = 18,
+			SCE_TOUCH 			 = 19,
+			SCE_ANDROID_BACK	 = 20,
+			SCE_MOUSE_SCROLL	 = 21
 		};
 	#endif
 	#if PLATFORM == PLAT_3DS
@@ -108,9 +111,9 @@
 		u64 switchHeldPad;
 		u64 switchReleasedPad;
 
-		#define possibleControlNumberType u64
+		#define ctrlDta u64
 	#else
-		#define possibleControlNumberType int
+		#define ctrlDta int
 	#endif
 
 	// Subplatform Stuff
@@ -143,7 +146,7 @@
 		}
 	#endif
 
-	possibleControlNumberType wasJustReleased(possibleControlNumberType value){
+	ctrlDta wasJustReleased(ctrlDta value){
 		if (InputValidity==1 || isSkipping==1){
 			#if PLATFORM == PLAT_VITA
 				if (lastPad.buttons & value && !(pad.buttons & value)){
@@ -165,7 +168,7 @@
 		return 0;
 	}
 
-	possibleControlNumberType wasJustPressedRegardless(possibleControlNumberType value){
+	ctrlDta wasJustPressedRegardless(ctrlDta value){
 		#if PLATFORM == PLAT_VITA
 			if (pad.buttons & value && !(lastPad.buttons & value)){
 				return 1;
@@ -186,14 +189,14 @@
 		return 0;
 	}
 
-	possibleControlNumberType wasJustPressed(possibleControlNumberType value){
+	ctrlDta wasJustPressed(ctrlDta value){
 		if (InputValidity==1 || isSkipping==1){
 			return (wasJustPressedRegardless(value));
 		}
 		return 0;
 	}
 
-	possibleControlNumberType isDown(possibleControlNumberType value){
+	ctrlDta isDown(ctrlDta value){
 		if (InputValidity==1 || isSkipping==1){
 			#if PLATFORM == PLAT_VITA
 				if (pad.buttons & value){
@@ -227,9 +230,14 @@
 			switchReleasedPad = hidKeysUp(CONTROLLER_P1_AUTO);
 		#elif RENDERER == REND_SDL
 			SDL_Event e;
+			pad[SCE_MOUSE_SCROLL]=0;
 			while( SDL_PollEvent( &e ) != 0 ){
 				if( e.type == SDL_QUIT ){
-					//XOutFunction();
+					XOutFunction();
+				}
+				if(e.type == SDL_MOUSEWHEEL){
+					mouseScroll = e.wheel.y;
+					pad[SCE_MOUSE_SCROLL]=1;
 				}
 				if( e.type == SDL_KEYDOWN ){
 					if (e.key.keysym.sym==SDLK_z){ /* X */
@@ -369,37 +377,42 @@
 		#endif
 	}
 
-	void fixPath(char* filename,char _buffer[], char type){
+	char* getFixPathString(char type){
 		if (DATAFOLDER==NULL){
 			generateDefaultDataDirectory(&DATAFOLDER,USEUMA0);
 		}
 		if (type==TYPE_DATA){
-			strcpy((char*)_buffer,DATAFOLDER);
+			return DATAFOLDER;
 		}else if (type==TYPE_EMBEDDED){
 			#if SUBPLATFORM == SUB_ANDROID
-				strcpy((char*)_buffer,"");
+				return "";
 			#elif PLATFORM == PLAT_COMPUTER
-				strcpy((char*)_buffer,"./");
+				return "./";
 			#elif PLATFORM == PLAT_VITA
-				strcpy((char*)_buffer,"app0:");
+				return "app0:";
 			#elif PLATFORM == PLAT_3DS
 				if (cacheIsCiaBuild==-1){
 					cacheIsCiaBuild = getIsCiaBuild();
 				}
 				if (cacheIsCiaBuild){
-					strcpy((char*)_buffer,"romfs:/");
+					return "romfs:/";
 				}else{
-					strcpy((char*)_buffer,DATAFOLDER);
+					return DATAFOLDER;
 				}
 			#elif PLATFORM == PLAT_SWITCH
-				strcpy((char*)_buffer,"romfs:/");
+				return "romfs:/";
 			#else
-				#warning NO EMBEDDED FILES YET
-				strcpy((char*)_buffer,DATAFOLDER);
+				printf("Not yet implemented to getFixPathString.\n");
+				return "";
 			#endif
 		}else{
 			printf("Unknown type.\n");
+			return "";
 		}
+	}
+
+	void fixPath(char* filename,char _buffer[], char type){
+		strcpy((char*)_buffer,getFixPathString(type));
 		strcat((char*)_buffer,filename);
 	}
 	void makeDataDirectory(){
