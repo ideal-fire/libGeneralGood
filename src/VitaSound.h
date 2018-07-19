@@ -977,13 +977,26 @@ NathanAudio* _mlgsnd_loadAudioFILE(legArchiveFile _passedFile, char _passedFileF
 }
 NathanAudio* _mlgsnd_loadAudioFilename(char* _passedFilename, char _passedShouldLoop, char _passedShouldStream){
 	char _foundFileFormat = FILE_FORMAT_NONE;
-	if (strlen(_passedFilename)>=4 && strcmp(&(_passedFilename[strlen(_passedFilename)-4]),".mp3")==0){
-		_foundFileFormat = FILE_FORMAT_MP3;
-	}else if (strlen(_passedFilename)>=4 && strcmp(&(_passedFilename[strlen(_passedFilename)-4]),".wav")==0){
-		// Not yet supported
-		//_foundFileFormat = FILE_FORMAT_WAV;
-	}else if (strlen(_passedFilename)>=4 && strcmp(&(_passedFilename[strlen(_passedFilename)-4]),".ogg")==0){
-		_foundFileFormat = FILE_FORMAT_OGG;
+	if (strlen(_passedFilename)>=4){
+		char _copiedExtension[5];
+		strcpy(_copiedExtension,&(_passedFilename[strlen(_passedFilename)-4]));
+
+		// Convert the extension to lower case
+		char i;
+		for (i=0;i<4;++i){
+			if (_copiedExtension[i]<='Z' && _copiedExtension[i]>='A'){
+				_copiedExtension[i]+=32;
+			}
+		}
+
+		if (strcmp(_copiedExtension,".mp3")==0){
+			_foundFileFormat = FILE_FORMAT_MP3;
+		}else if (strcmp(_copiedExtension,".wav")==0){
+			// Not yet supported
+			//_foundFileFormat = FILE_FORMAT_WAV;
+		}else if (strcmp(_copiedExtension,".ogg")==0){
+			_foundFileFormat = FILE_FORMAT_OGG;
+		}
 	}
 	if (_foundFileFormat!=FILE_FORMAT_NONE){
 		legArchiveFile _passFile;
@@ -1116,6 +1129,9 @@ int main(void) {
 	// TODO - To fix load dictionary loading, just put the dictionary in a seperate file.
 	if (sizeof(float)!=4 || sizeof(short)!=2 || (sizeof(int)>sizeof(void*) || (sizeof(short)>sizeof(float)))){
 		printf("Type sizes wrong, f;d, %d;%d\n",sizeof(float),sizeof(short));
+		if (!('Z'==90 && 'z'==122)){
+			printf("ASCII values are wrong.\n");
+		}
 	}
 	//NathanAudio* _theGoodBGM = mlgsnd_loadMusic("ux0:data/SOUNDTEST/dppbattlemono.ogg");
 	//mlgsnd_setVolume(_theGoodBGM,50);

@@ -360,16 +360,11 @@
 		if (_cachedStrlen==0){
 			return;
 		}
-		if (_cachedStrlen==1 && _toRemove[0]==0x0A){
-			_toRemove[0]=0;
-			return;
-		}
-
-		if (_toRemove[_cachedStrlen-1]==0x0A){
-			if (_toRemove[_cachedStrlen-2]==0x0D){ // Windows newline
-				_toRemove[_cachedStrlen-2]=0;
-			}else{ // Unix line ending
-				_toRemove[_cachedStrlen-1]=0;
+		if (_toRemove[_cachedStrlen-1]==0x0A){ // Last char is UNIX newline
+			if (_cachedStrlen>=2 && _toRemove[_cachedStrlen-2]==0x0D){ // If it's a Windows newline
+				_toRemove[_cachedStrlen-2]='\0';
+			}else{ // Well, it's at very least a UNIX newline
+				_toRemove[_cachedStrlen-1]='\0';
 			}
 		}
 	}

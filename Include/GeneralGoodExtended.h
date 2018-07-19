@@ -77,6 +77,12 @@
 	#define ctrlDta int
 #endif
 
+#if RENDERER == REND_SDL
+	#include <SDL2/SDL_keycode.h>
+	// Keysyms, lets you use the entire keyboard
+	extern SDL_Keycode lastSDLPressedKey;
+#endif
+
 extern char tempPathFixBuffer[256];
 extern char* DATAFOLDER;
 

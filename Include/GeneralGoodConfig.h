@@ -122,5 +122,4 @@
 	#ifndef SUBPLATFORM
 		#define SUBPLATFORM SUB_NONE
 	#endif
-
 #endif

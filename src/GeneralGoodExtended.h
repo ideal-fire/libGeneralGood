@@ -35,6 +35,8 @@
 		// These are defined for you if you're using libGeneralGood
 		extern int _generalGoodRealScreenWidth;
 		extern int _generalGoodRealScreenHeight;
+		#include <SDL2/SDL_keycode.h>
+		SDL_Keycode lastSDLPressedKey=SDLK_UNKNOWN;
 	#endif
 
 	#include <stdio.h>
@@ -229,6 +231,7 @@
 			switchHeldPad = hidKeysHeld(CONTROLLER_P1_AUTO);
 			switchReleasedPad = hidKeysUp(CONTROLLER_P1_AUTO);
 		#elif RENDERER == REND_SDL
+			lastSDLPressedKey=SDLK_UNKNOWN;
 			SDL_Event e;
 			pad[SCE_MOUSE_SCROLL]=0;
 			while( SDL_PollEvent( &e ) != 0 ){
@@ -240,6 +243,8 @@
 					pad[SCE_MOUSE_SCROLL]=1;
 				}
 				if( e.type == SDL_KEYDOWN ){
+					lastSDLPressedKey = e.key.keysym.sym;
+
 					if (e.key.keysym.sym==SDLK_z){ /* X */
 						pad[SCE_CTRL_CROSS]=1;
 					}else if (e.key.keysym.sym==SDLK_x){/* O */
