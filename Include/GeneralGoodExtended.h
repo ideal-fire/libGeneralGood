@@ -81,6 +81,7 @@
 	#include <SDL2/SDL_keycode.h>
 	// Keysyms, lets you use the entire keyboard
 	extern SDL_Keycode lastSDLPressedKey;
+	extern char lastClickWasRight;
 #endif
 
 extern char tempPathFixBuffer[256];

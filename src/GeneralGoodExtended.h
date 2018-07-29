@@ -37,6 +37,7 @@
 		extern int _generalGoodRealScreenHeight;
 		#include <SDL2/SDL_keycode.h>
 		SDL_Keycode lastSDLPressedKey=SDLK_UNKNOWN;
+		char lastClickWasRight=0;
 	#endif
 
 	#include <stdio.h>
@@ -298,7 +299,16 @@
 					touchX = e.tfinger.x * _generalGoodRealScreenWidth;
 					touchY = e.tfinger.y * _generalGoodRealScreenHeight;
 					pad[SCE_TOUCH]=1;
-				}else if (e.type == SDL_MOUSEBUTTONDOWN || (pad[SCE_TOUCH]==1 && e.type == SDL_MOUSEMOTION) ){
+					lastClickWasRight=0;
+				}else if (e.type == SDL_MOUSEBUTTONDOWN){ // Initial click
+					SDL_GetMouseState(&touchX,&touchY);
+					pad[SCE_TOUCH] = 1;
+					if (e.button.button==SDL_BUTTON_RIGHT){
+						lastClickWasRight=1;
+					}else{
+						lastClickWasRight=0;
+					}
+				}else if (e.type == SDL_MOUSEMOTION && pad[SCE_TOUCH]==1){ // Click and drag
 					SDL_GetMouseState(&touchX,&touchY);
 					pad[SCE_TOUCH] = 1;
 				}
