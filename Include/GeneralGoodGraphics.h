@@ -14,6 +14,7 @@ void quitGraphics();
 void drawRectangle(int x, int y, int w, int h, int r, int g, int b, int a);
 void endDrawing();
 void fixCoords(int* _x, int* _y);
+void setWindowTitle(char* _newTitle);
 void initGraphics(int _windowWidth, int _windowHeight, int* _storeWindowWidth, int* _storeWindowHeight);
 void setClearColor(int r, int g, int b, int a);
 void startDrawing();

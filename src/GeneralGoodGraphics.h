@@ -41,6 +41,14 @@
 	int _generalGoodRealScreenWidth=1;
 	int _generalGoodRealScreenHeight=1;
 
+	void setWindowTitle(char* _newTitle){
+		#if RENDERER == REND_SDL
+			SDL_SetWindowTitle(mainWindow,_newTitle);
+		#else
+			printf("Window title is now %s\n",_newTitle);
+		#endif
+	}
+
 	// _windowWidth and _windowHeight are recommendations for the Window size. Will be ignored on Android, Vita, etc.
 	void initGraphics(int _windowWidth, int _windowHeight, int* _storeWindowWidth, int* _storeWindowHeight){
 		#if RENDERER == REND_SDL
