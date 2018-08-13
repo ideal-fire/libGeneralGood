@@ -71,9 +71,9 @@
 		// If the program will use uma0 for the data directory instead of ux0.
 		#define USEUMA0 1
 		// For some reason, I can't remember what exactly this does. Something for Android.
-		#define DOFIXCOORDS 1
+		#define DOFIXCOORDS 0
 	// Only affects SDL. Not really worth using this setting.
-	#define USEVSYNC 1
+	#define USEVSYNC 0
 
 	#ifdef FORCESDL
 		#define RENDERER REND_SDL
@@ -118,8 +118,7 @@
 		// #define RENDERER a
 		// #define TEXTRENDERER a
 	#endif
-	#undef TEXTRENDERER
-	#define TEXTRENDERER TEXT_UNDEFINED
+
 	#ifndef SUBPLATFORM
 		#define SUBPLATFORM SUB_NONE
 	#endif
