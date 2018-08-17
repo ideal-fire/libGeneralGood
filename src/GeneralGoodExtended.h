@@ -30,6 +30,11 @@
 	unsigned char isSkipping=0;
 	signed char InputValidity=1;
 	
+	#if SUBPLATFORM == SUB_WINDOWS
+		// For get data directory
+		#include <windows.h>
+	#endif
+	
 	// Required to fix touchscreen coords
 	#if RENDERER == REND_SDL
 		// These are defined for you if you're using libGeneralGood
@@ -365,8 +370,26 @@
 			strcat(*_dataDirPointer,ANDROIDPACKAGENAME);
 			strcat(*_dataDirPointer,"/");
 		#elif PLATFORM == PLAT_COMPUTER
-			*_dataDirPointer = malloc(strlen("./")+1);
-			strcpy(*_dataDirPointer,"./");
+			#if SUBPLATFORM == SUB_WINDOWS
+				char _buffer[1000];
+				if (GetModuleFileName(NULL,_buffer,sizeof(_buffer))==0){
+					printf("Failed to get exe location.");
+					strcpy(_buffer,"./");
+				}else{
+					int i;
+					for (i=strlen(_buffer)-2;i>=0;--i){
+						if (_buffer[i]=='\\'){
+							_buffer[i+1]='\0';
+							break;
+						}
+					}
+				}
+				*_dataDirPointer = strdup(_buffer);
+				printf("%s\n",_buffer);
+			#else
+				*_dataDirPointer = malloc(strlen("./")+1);
+				strcpy(*_dataDirPointer,"./");
+			#endif
 		#elif PLATFORM == PLAT_VITA
 			if (_useUma0){
 				*_dataDirPointer = malloc(strlen("uma0:data//")+strlen(VITAAPPID)+1);
@@ -402,7 +425,11 @@
 			#if SUBPLATFORM == SUB_ANDROID
 				return "";
 			#elif PLATFORM == PLAT_COMPUTER
-				return "./";
+				#if SUBPLATFORM == SUB_WINDOWS
+					return DATAFOLDER;
+				#else
+					return "./";
+				#endif
 			#elif PLATFORM == PLAT_VITA
 				return "app0:";
 			#elif PLATFORM == PLAT_3DS

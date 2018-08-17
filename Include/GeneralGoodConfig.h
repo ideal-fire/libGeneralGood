@@ -49,6 +49,9 @@
 	#if _WIN32
 		#define PRESET PRE_COMPUTER
 		#define SUBPLATFORM SUB_WINDOWS
+	#elif __ANDROID__
+		#define PRESET PRE_ANDROID
+		#define SUBPLATFORM SUB_ANDROID
 	#elif __unix__
 		#define PRESET PRE_COMPUTER
 		#define SUBPLATFORM SUB_UNIX
