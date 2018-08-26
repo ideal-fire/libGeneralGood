@@ -346,9 +346,6 @@
 		#define CROSSFILE_END RW_SEEK_END
 	#else
 		#define CROSSFILE FILE
-	#endif
-	// Defaults
-	#ifndef CROSSFILE_START
 		#define CROSSFILE_START SEEK_SET
 		#define CROSSFILE_CUR SEEK_CUR
 		#define CROSSFILE_END SEEK_END
@@ -462,7 +459,7 @@
 		#if PLATFORM == PLAT_VITA
 			return fp->internalPosition;
 		#elif RENDERER == REND_SDL
-			return crossfseek(fp,0,CROSSFILE_CUR);
+			return SDL_RWseek(fp,0,CROSSFILE_CUR);
 		#else
 			return ftell(fp);
 		#endif
