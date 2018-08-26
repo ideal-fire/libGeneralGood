@@ -444,7 +444,7 @@
 			}
 			return 0;
 		#elif RENDERER == REND_SDL
-			return SDL_RWseek(stream,offset,origin);
+			return (SDL_RWseek(stream,offset,origin)==-1);
 		#else
 			return fseek(stream,offset,origin);
 		#endif
