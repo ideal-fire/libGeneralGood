@@ -333,6 +333,9 @@
 			FILE* fp;
 		}vitaFile;
 		#define CROSSFILE vitaFile
+		#define CROSSFILE_START SEEK_SET
+		#define CROSSFILE_CUR SEEK_CUR
+		#define CROSSFILE_END SEEK_END
 
 		void _fixVitaFile(vitaFile* _passedFile){
 			fclose(_passedFile->fp);

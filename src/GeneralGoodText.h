@@ -129,7 +129,7 @@
 			for (i = 0; i < strlen(text); i++){
 				if (text[i]-32<95){
 					drawLetterColorAlpha(text[i],_currentDrawTextX,y,size,r,g,b,a);
-					_currentDrawTextX+=bitmapFontLetterInfo[text[i]-32].imageDisplayWidth;
+					_currentDrawTextX+=bitmapFontLetterInfo[text[i]-32].imageDisplayWidth*size;
 				}
 			}
 		#elif TEXTRENDERER == TEXT_FONTCACHE
@@ -156,7 +156,7 @@
 			for (i = 0; i < strlen(text); i++){
 				if (text[i]-32<95){
 					drawLetter(text[i],_currentDrawTextX,y,size);
-					_currentDrawTextX+=bitmapFontLetterInfo[text[i]-32].imageDisplayWidth;
+					_currentDrawTextX+=bitmapFontLetterInfo[text[i]-32].imageDisplayWidth*size;
 				}
 			}
 		#elif TEXTRENDERER == TEXT_FONTCACHE

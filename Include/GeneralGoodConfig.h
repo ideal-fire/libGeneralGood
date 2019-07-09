@@ -110,9 +110,9 @@
 		#define TEXTRENDERER TEXT_FONTCACHE
 	#elif PRESET == PRE_SWITCH
 		#define PLATFORM PLAT_SWITCH
-		#define SOUNDPLAYER SND_NONE
+		#define SOUNDPLAYER SND_SDL
 		#define RENDERER REND_SDL
-		#define TEXTRENDERER TEXT_UNDEFINED
+		#define TEXTRENDERER TEXT_FONTCACHE
 	#else
 		#warning Put custom stuff here
 		// #define PLATFORM a
