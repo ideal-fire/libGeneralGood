@@ -88,11 +88,11 @@
 				#endif
 			#endif
 			if (mainWindowRenderer==NULL){
+				int flags=SDL_RENDERER_ACCELERATED;
 				if (USEVSYNC){
-					mainWindowRenderer = SDL_CreateRenderer( mainWindow, -1, SDL_RENDERER_PRESENTVSYNC);
-				}else{
-					mainWindowRenderer = SDL_CreateRenderer( mainWindow, -1, SDL_RENDERER_ACCELERATED);
+					flags|=SDL_RENDERER_PRESENTVSYNC;
 				}
+				mainWindowRenderer = SDL_CreateRenderer( mainWindow, -1, flags);
 				showErrorIfNull(mainWindowRenderer);
 			}
 			IMG_Init( IMG_INIT_PNG );

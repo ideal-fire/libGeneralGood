@@ -75,8 +75,8 @@
 		#define USEUMA0 1
 		// For some reason, I can't remember what exactly this does. Something for Android.
 		#define DOFIXCOORDS 0
-	// Only affects SDL. Not really worth using this setting.
-	#define USEVSYNC 0
+	// Support depends on renderer.
+	#define USEVSYNC 1
 
 	#ifdef FORCESDL
 		#define RENDERER REND_SDL
